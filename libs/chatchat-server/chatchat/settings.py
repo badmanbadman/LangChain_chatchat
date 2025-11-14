@@ -41,6 +41,7 @@ class BasicSettings(BaseFileSettings):
     """httpx 请求默认超时时间（秒）。如果加载模型或对话较慢，出现超时错误，可以适当加大该值。"""
 
     # @computed_field
+    # 、、把只读属性（方法）第一次计算的结果缓存起来，后续访问该属性，直接返回缓存结果而不会执行方法体，
     @cached_property
     def PACKAGE_ROOT(self) -> Path:
         """代码根目录"""

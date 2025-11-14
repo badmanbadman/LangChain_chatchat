@@ -41,31 +41,45 @@ def init(
     recreate_kb: bool = False,
     kb_names: str = "",
 ):
+    # 、、在批量修改配置或者初始化的时候先设置为False，完成后再设为True（允许配置文件变更触发更新）
     Settings.set_auto_reload(False)
+    # 、、获取基础配置
     bs = Settings.basic_settings
+
+    # 、、生成知识库名称，默认逗号分隔
     kb_names = [x.strip() for x in kb_names.split(",")]
     logger.success(f"开始初始化项目数据目录：{Settings.CHATCHAT_ROOT}")
+
+    # 、、创建所有数据集目录
     Settings.basic_settings.make_dirs()
     logger.success("创建所有数据目录：成功。")
+
     if(bs.PACKAGE_ROOT / "data/knowledge_base/samples" != Path(bs.KB_ROOT_PATH) / "samples"):
+        # 、、shuil 用来递归复制一个目录及其所有子文件/子目录到目标位置
         shutil.copytree(bs.PACKAGE_ROOT / "data/knowledge_base/samples", Path(bs.KB_ROOT_PATH) / "samples", dirs_exist_ok=True)
     logger.success("复制 samples 知识库文件：成功。")
+    # 、、初始化知识库数据库
     create_tables()
     logger.success("初始化知识库数据库：成功。")
 
     if xf_endpoint:
+        # 、、运行大模型的程序框架
         Settings.model_settings.MODEL_PLATFORMS[0].api_base_url = xf_endpoint
     if llm_model:
+        # 、、推理用的大模型
         Settings.model_settings.DEFAULT_LLM_MODEL = llm_model
     if embed_model:
+        # 、、嵌入用embedding模型
         Settings.model_settings.DEFAULT_EMBEDDING_MODEL = embed_model
-
+    
+    # 生成配置文件
     Settings.createl_all_templates()
+    # 配置项重置为：配置文件变更自动刷新
     Settings.set_auto_reload(True)
 
     logger.success("生成默认配置文件：成功。")
     logger.success("请先检查确认 model_settings.yaml 里模型平台、LLM模型和Embed模型信息已经正确")
-
+    # 、、re create kb 重新生成知识库
     if recreate_kb:
         folder2db(kb_names=kb_names,
                   mode="recreate_vs",

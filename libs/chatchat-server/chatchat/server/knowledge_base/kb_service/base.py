@@ -54,7 +54,9 @@ class SupportedVSType:
     ES = "es"
     CHROMADB = "chromadb"
 
-
+# 、、ABC是一个python标准abc模块力的抽象基类辅助类，
+#   、、作用：让一个类成为抽象基类，配合@abstractmethod使用可以声明必须由子类实现的方法，如果子类没有实现所有的抽象方法，则不能实例化该子类
+#   、、这个KBService抽象类中，继承ABC并使用@abstractmethod定义了do_create_kb,do_init等方法，强制各个后端实现类（Fasiss，Milvus...)实现这些方法
 class KBService(ABC):
     def __init__(
         self,
@@ -62,13 +64,19 @@ class KBService(ABC):
         kb_info: str = None,
         embed_model: str = get_default_embedding(),
     ):
+        # 、、知识库名称
         self.kb_name = knowledge_base_name
-        self.kb_info = kb_info or Settings.kb_settings.KB_INFO.get(
+        # 、、知识库描述（介绍）
+        self.kb_info = kb_info or Settings.kb_settings.KB_INFO.get( 
             knowledge_base_name, f"关于{knowledge_base_name}的知识库"
         )
+        # 、、嵌入embedding模型
         self.embed_model = embed_model
+        # 、、知识库文件夹路径（下面包括了知识库content和向量库）
         self.kb_path = get_kb_path(self.kb_name)
+        # 、、知识库文件夹下的文件路径（放到了一个content文件夹内）
         self.doc_path = get_doc_path(self.kb_name)
+        # 、、执行初始化方法（）
         self.do_init()
 
     def __repr__(self) -> str:
@@ -81,20 +89,25 @@ class KBService(ABC):
         pass
 
     def check_embed_model(self) -> Tuple[bool, str]:
+        """、、测试嵌入模型是否可用"""
         return _check_embed_model(self.embed_model)
 
     def create_kb(self):
         """
         创建知识库
         """
+        # 、、创建知识库content文件夹
         if not os.path.exists(self.doc_path):
             os.makedirs(self.doc_path)
 
-        status = add_kb_to_db(
+        # 、、添加知识库到向量检索库
+        # 、、入参为： kb_name(知识库名称),kb_info(知识库描述), vs_type(向量库类型)，embed_model(向量库嵌入embedding模型)
+        status =  add_kb_to_db(
             self.kb_name, self.kb_info, self.vs_type(), self.embed_model
         )
 
         if status:
+        #  成功创建知识库的回调，由子类自己实现
             self.do_create_kb()
         return status
 
@@ -346,6 +359,12 @@ class KBService(ABC):
 
 
 class KBServiceFactory:
+    """知识库工厂类：
+    有静态方法： 
+        get_service: 
+        get_service_by_name
+        get_default
+    """
     @staticmethod
     def get_service(
         kb_name: str,
@@ -353,7 +372,9 @@ class KBServiceFactory:
         embed_model: str = get_default_embedding(),
         kb_info: str = None,
     ) -> KBService:
+       
         if isinstance(vector_store_type, str):
+            # 如果vector_store 是字符串时，把他转为SupportedVSType类型
             vector_store_type = getattr(SupportedVSType, vector_store_type.upper())
         params = {
             "knowledge_base_name": kb_name,

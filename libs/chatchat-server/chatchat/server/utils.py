@@ -398,11 +398,13 @@ def get_Embeddings(
 
 def check_embed_model(embed_model: str = None) -> Tuple[bool, str]:
     '''
-    check weather embed_model accessable, use default embed model if None
+    检测嵌入embedding模型是否可用，（如未指定则使用默认模型）
     '''
     embed_model = embed_model or get_default_embedding()
+    # 获取嵌入模型
     embeddings = get_Embeddings(embed_model=embed_model)
     try:
+        # 模型调用测试通过
         embeddings.embed_query("this is a test")
         return True, ""
     except Exception as e:

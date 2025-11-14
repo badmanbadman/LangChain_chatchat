@@ -50,6 +50,9 @@ def get_file_path(knowledge_base_name: str, doc_name: str):
 
 
 def list_kbs_from_folder():
+    """
+    、、获取知识库文件夹（knowledge_base）下的所有文件夹，返回一个文件夹list
+    """
     return [
         f
         for f in os.listdir(Settings.basic_settings.KB_ROOT_PATH)

@@ -19,7 +19,7 @@ def session_scope() -> Session:
     finally:
         session.close()
 
-
+# 、、注解用于将session会话当作第一个入参添加给执行方法
 def with_session(f):
     @wraps(f)
     def wrapper(*args, **kwargs):

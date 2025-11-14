@@ -41,7 +41,12 @@ logger = build_logger()
 
 def create_tables():
     Base.metadata.create_all(bind=engine)
-
+    """
+    Base.metadata.create_all(engine)的作用：
+        ·在指定的数据库引擎上为Base中注册的所有的ORM模型创建表（基于Base.metadata收集到的Table定义）
+        ·只发起CREATE TABLE 语句；如果表已经存在默认会跳过，不会修改已经存在的表的结构
+        ·常用于初始化SQLite/测试环境或快速创建表。生成环境的模式迁移应该使用ALembic等迁移工具
+    """
 
 def reset_tables():
     Base.metadata.drop_all(bind=engine)
@@ -114,14 +119,16 @@ def folder2db(
     zh_title_enhance: bool = Settings.kb_settings.ZH_TITLE_ENHANCE,
 ):
     """
-    use existed files in local folder to populate database and/or vector store.
-    set parameter `mode` to:
-        recreate_vs: recreate all vector store and fill info to database using existed files in local folder
-        fill_info_only(disabled): do not create vector store, fill info to db using existed files only
-        update_in_db: update vector store and database info using local files that existed in database only
-        increment: create vector store and database info for local files that not existed in database only
+    指定的本地知识库文件夹内容导入/重建到向量检索数据库(vector store)中
+        入参说明：
+            kb_names: 知识库名称list
+            mode:
+                recreate_vs(清除向量库，从本地文件重建)
+                update_in_db(以数据库中文件列表为基准，利用本地文件更新向量库)
+                increment(对比本地目录与数据库中的文件列表，进行增量向量化)
+            vs_type: (vector store)向量存储/检索 类型
     """
-
+    
     def files2vs(kb_name: str, kb_files: List[KnowledgeFile]) -> List:
         result = []
         for success, res in files2docs_in_thread(
@@ -144,8 +151,11 @@ def folder2db(
         return result
 
     kb_names = kb_names or list_kbs_from_folder()
+    """、、获取知识库的文件夹list，作为知识库的名称list"""
     for kb_name in kb_names:
         start = datetime.now()
+        # 、、通过知识库工厂：入参为 知识库名称，向量库类型，嵌入模型名称   
+        # 、、返回一个知识库的实例，里面包含了对知识库的各种方法，每种不同的vs_type,会返回不同的方法实现
         kb = KBServiceFactory.get_service(kb_name, vs_type, embed_model)
         if not kb.exists():
             kb.create_kb()

@@ -242,7 +242,7 @@ _T = t.TypeVar("_T", bound=BaseFileSettings)
 @cached(max_size=1, algorithm=CachingAlgorithmFlag.LRU, thread_safe=True, custom_key_maker=_lazy_load_key)
 def _cached_settings(settings: _T) -> _T:
     """
-    the sesstings is cached, and refreshed when configuration files changed
+    当配置文件被更新时候，配置会被刷新和缓存起来
     """
     if settings.auto_reload:
         settings.__init__()
