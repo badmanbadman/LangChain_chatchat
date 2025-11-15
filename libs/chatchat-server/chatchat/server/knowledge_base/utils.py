@@ -43,6 +43,10 @@ def get_vs_path(knowledge_base_name: str, vector_name: str):
 
 
 def get_file_path(knowledge_base_name: str, doc_name: str):
+    """
+    计算并返回知识库中文档的绝对路径（字符串），但只在该路径确实位于知识库的 content 目录下时返回；否则返回 None。
+    目的主要是防止路径遍历（../）或传入的 doc_name 指向仓库外的文件。
+    """
     doc_path = Path(get_doc_path(knowledge_base_name)).resolve()
     file_path = (doc_path / doc_name).resolve()
     if str(file_path).startswith(str(doc_path)):
@@ -62,6 +66,7 @@ def list_kbs_from_folder():
 
 def list_files_from_folder(kb_name: str):
     doc_path = get_doc_path(kb_name)
+    # 所有知识库（文件夹）下的文件存储变量
     result = []
 
     def is_skiped_path(path: str):
@@ -98,21 +103,26 @@ def list_files_from_folder(kb_name: str):
 
 
 LOADER_DICT = {
-    "UnstructuredHTMLLoader": [".html", ".htm"],
+    # 挪个位置，这几个都是使用自定义的加载器
+    # "FilteredCSVLoader": [".csv"], 如果使用自定义分割csv  #、、自定义csv加载器，暂时没有用
+    "RapidOCRPDFLoader": [".pdf"],  # 、、自定义pdf加载器
+    "RapidOCRDocLoader": [".docx"], # 、、自定义docx加载器，
+    "RapidOCRPPTLoader": [
+        ".ppt",
+        ".pptx",
+    ],  # 、、自定义ppt,pptx加载器，牛逼啊，这也能自定义的
+    "RapidOCRLoader": [".png", ".jpg", ".jpeg", ".bmp"], #、、 自定义图片加载器
+
+
+
+    "UnstructuredHTMLLoader": [".html", ".htm"],  
     "MHTMLLoader": [".mhtml"],
     "TextLoader": [".md"],
     "UnstructuredMarkdownLoader": [".md"],
     "JSONLoader": [".json"],
     "JSONLinesLoader": [".jsonl"],
     "CSVLoader": [".csv"],
-    # "FilteredCSVLoader": [".csv"], 如果使用自定义分割csv
-    "RapidOCRPDFLoader": [".pdf"],
-    "RapidOCRDocLoader": [".docx"],
-    "RapidOCRPPTLoader": [
-        ".ppt",
-        ".pptx",
-    ],
-    "RapidOCRLoader": [".png", ".jpg", ".jpeg", ".bmp"],
+
     "UnstructuredFileLoader": [
         ".eml",
         ".msg",
@@ -182,20 +192,25 @@ def get_loader(loader_name: str, file_path: str, loader_kwargs: Dict = None):
             "RapidOCRDocLoader",
             "RapidOCRPPTLoader",
         ]:
+            # 如果是这几种加载器就返回自定义的在file_rag下面的document_loader
             document_loaders_module = importlib.import_module(
                 "chatchat.server.file_rag.document_loaders"
             )
         else:
+            # 如果是其他类型的加载器，就使用langchain_community提供的document_loader加载器
             document_loaders_module = importlib.import_module(
                 "langchain_community.document_loaders"
             )
+        # 根据加载器的名称，获取加载器
         DocumentLoader = getattr(document_loaders_module, loader_name)
     except Exception as e:
+        # 、、按理说到这步来的时候已经在前面校验过文档类型了，不应该报这个错来，后续审查下前端逻辑
         msg = f"为文件{file_path}查找加载器{loader_name}时出错：{e}"
         logger.error(f"{e.__class__.__name__}: {msg}")
         document_loaders_module = importlib.import_module(
             "langchain_community.document_loaders"
         )
+        # 默认就给他加载个非结构化的加载器来解析
         DocumentLoader = getattr(document_loaders_module, "UnstructuredFileLoader")
 
     if loader_name == "UnstructuredFileLoader":
@@ -205,7 +220,7 @@ def get_loader(loader_name: str, file_path: str, loader_kwargs: Dict = None):
             # 如果未指定 encoding，自动识别文件编码类型，避免langchain loader 加载文件报编码错误
             with open(file_path, "rb") as struct_file:
                 encode_detect = chardet.detect(struct_file.read())
-            if encode_detect is None:
+            if encode_detect is None: 
                 encode_detect = {"encoding": "utf-8"}
             loader_kwargs["encoding"] = encode_detect["encoding"]
 
@@ -322,21 +337,38 @@ class KnowledgeFile:
         """
         对应知识库目录中的文件，必须是磁盘上存在的才能进行向量化等操作。
         """
+        # 、、 知识库名称
         self.kb_name = knowledge_base_name
+        # 、、文件名称
         self.filename = str(Path(filename).as_posix())
+        # 、、文件扩展名（如 .txt .html等）
         self.ext = os.path.splitext(filename)[-1].lower()
         if self.ext not in SUPPORTED_EXTS:
+            # 、、判断是否支持文件类型
             raise ValueError(f"暂未支持的文件格式 {self.filename}")
+        # 、、【沒看到这个参数哪里有传进来过】
         self.loader_kwargs = loader_kwargs
+        #、、文件路径（重点注意，初始化的属性是实例被创建的时候赋值过一次的，比如filepath在实例化的时候已经有了具体的路径，后面计算是根据这个来查找的文件，比如执行   实例.file2text() 方法，拿的就是这个path）
         self.filepath = get_file_path(knowledge_base_name, filename)
+        # 、、文档
         self.docs = None
+        # 、、切割过后的文档
         self.splited_docs = None
+        # 、、文件加载器的名字（根据扩展名而来）
         self.document_loader_name = get_LoaderClass(self.ext)
+        # 、、文件切割器的名称（默认是作者实现的中文文件切割器）
         self.text_splitter_name = Settings.kb_settings.TEXT_SPLITTER_NAME
 
+    # 、、file：指的是knowledgeFile实例，代表的是磁盘上的"一个文件"。它有属性，例如filepath，ext，documnet_loader_name
+    # 、、      splited_docs等，调用file.file2docs会把这个文件  加载成文档  并保存到file.docs上
+    # 、、docs: 指的是由加载器（laoder）返回的文档列表，类型通常是List[langchain.docstore.document.Document]
+    # 、、      每个Document包含page_content(文本)和metadata(例如soure/页码等)
     def file2docs(self, refresh: bool = False):
         if self.docs is None or refresh:
             logger.info(f"{self.document_loader_name} used for {self.filepath}")
+            # document_loader_name (在初始化的时候定义了，是根据文件的扩展名自动计算而来)
+            # filepath（初始化的时候定义了，实例化的时候穿进来是filename，但是通过知识库的名称和一些固定规则，如知识库名称下面的content文件夹，来拼接起来的filepath路径）
+            # loader_kwargs： 不知道哪里来的，初始化的时候我就没找到哪里穿进来的
             loader = get_loader(
                 loader_name=self.document_loader_name,
                 file_path=self.filepath,
@@ -416,13 +448,17 @@ def files2docs_in_thread_file2docs(
     *, file: KnowledgeFile, **kwargs
 ) -> Tuple[bool, Tuple[str, str, List[Document]]]:
     try:
+        # 文件加载
         return True, (file.kb_name, file.filename, file.file2text(**kwargs))
     except Exception as e:
         msg = f"从文件 {file.kb_name}/{file.filename} 加载文档时出错：{e}"
         logger.error(f"{e.__class__.__name__}: {msg}")
         return False, (file.kb_name, file.filename, msg)
 
-
+# 、、接收的第一个参数files可以是3种类型
+# 、、1、KnowledgeFile实例 
+#    2、tuple(filename,kb_name) 元组
+#    3、dict 包含有filename 和 kb_name （其余健会被当作loader/splitter参数）
 def files2docs_in_thread(
     files: List[Union[KnowledgeFile, Tuple[str, str], Dict]],
     chunk_size: int = Settings.kb_settings.CHUNK_SIZE,
@@ -439,19 +475,27 @@ def files2docs_in_thread(
     for i, file in enumerate(files):
         kwargs = {}
         try:
+            # 如果是files元组类型
             if isinstance(file, tuple) and len(file) >= 2:
+                # 、、元组的第一项为filename，第二项为kb_name
                 filename = file[0]
                 kb_name = file[1]
+                # 、、通过元组中的filename和kb_name，生成一个Knowledge的实例
                 file = KnowledgeFile(filename=filename, knowledge_base_name=kb_name)
+            #、、 如果是字典类型 
             elif isinstance(file, dict):
                 filename = file.pop("filename")
                 kb_name = file.pop("kb_name")
+                # 、、其余键会被当作loader/splitter参数
                 kwargs.update(file)
+                # 、、通过字典中的filename和kb_name，生成一个Knowledge的实例
                 file = KnowledgeFile(filename=filename, knowledge_base_name=kb_name)
-            kwargs["file"] = file
-            kwargs["chunk_size"] = chunk_size
-            kwargs["chunk_overlap"] = chunk_overlap
-            kwargs["zh_title_enhance"] = zh_title_enhance
+            kwargs["file"] = file  #、、最终这file还是要以Knowledge实例的形式来承载
+            kwargs["chunk_size"] = chunk_size #知识库中单段文本的长度
+            kwargs["chunk_overlap"] = chunk_overlap #知识库中相邻文本重合长度
+            kwargs["zh_title_enhance"] = zh_title_enhance#是否开启标题加强
+            # 将  file (Knowledge实例)，chunk_size, chuck_overlap, zh_title_enhance组成的对象
+            # append到kwargs_list中，方便在线程池中取批量进行读取
             kwargs_list.append(kwargs)
         except Exception as e:
             yield False, (kb_name, filename, str(e))

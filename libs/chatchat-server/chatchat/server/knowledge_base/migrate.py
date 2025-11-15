@@ -98,9 +98,15 @@ def import_from_db(
 
 
 def file_to_kbfile(kb_name: str, files: List[str]) -> List[KnowledgeFile]:
+    """
+    list实例中的每个实例中主要提供包含有 file2docs，file2text, docs2text,这三个转化方法，
+    和一些如文件路径filepath，splited_docs等的关键属性
+    """
     kb_files = []
     for file in files:
         try:
+            # 、、返回一个知识库文件实例，（2个入参，第一个是要向量化的文件，第二个是知识库名称）
+            # 、、这个实例中主要提供包含有 file2docs，file2text, docs2text,这三个转化方法，和一些如splited_docs等的关键属性
             kb_file = KnowledgeFile(filename=file, knowledge_base_name=kb_name)
             kb_files.append(kb_file)
         except Exception as e:
@@ -132,10 +138,10 @@ def folder2db(
     def files2vs(kb_name: str, kb_files: List[KnowledgeFile]) -> List:
         result = []
         for success, res in files2docs_in_thread(
-            kb_files,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            zh_title_enhance=zh_title_enhance,
+            kb_files, # 传入知识库文件实例list,实例中包含由file2docs,docs2text,file2text方法和一些关键如filepath等关键属性
+            chunk_size=chunk_size,#知识库中单段文本长度
+            chunk_overlap=chunk_overlap,  #知识库中相邻文本重合长度
+            zh_title_enhance=zh_title_enhance,  #是否开启中文标题加强，以及标题增强的相关配置
         ):
             if success:
                 _, filename, docs = res
@@ -162,9 +168,14 @@ def folder2db(
 
         # 清除向量库，从本地文件重建
         if mode == "recreate_vs":
+            # 、、清空这个向量知识库表，主要是执行了knowlange_file和file_doc表中kb_name为当前kb_bamed的所有行
             kb.clear_vs()
-            kb.create_kb()
+            # 、、新建一个向量知识库，操作包括创建知识库content文件夹，实例化一个知识库ORM模型，并添加到事务中
+            kb.create_kb() 
+            # 、、普通文件转化为知识库文件，2个入参，第一个是知识库名称（文件夹名称），第二个是知识库（文件夹）下的所有文件list，
+            # 、、返回存储向量知识库需要的文件实例list，
             kb_files = file_to_kbfile(kb_name, list_files_from_folder(kb_name))
+            # 、、将从知识库文件实例list转化存储到向量库
             result = files2vs(kb_name, kb_files)
             kb.save_vector_store()
         # # 不做文件内容的向量化，仅将文件元信息存到数据库

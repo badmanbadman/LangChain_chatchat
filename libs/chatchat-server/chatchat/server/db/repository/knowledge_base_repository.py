@@ -19,9 +19,11 @@ def add_kb_to_db(session, kb_name, kb_info, vs_type, embed_model):
 
     # 没找到知识库实例就添加一个
     if not kb:
+        # 实例化一个知识库ORM模型
         kb = KnowledgeBaseModel(
             kb_name=kb_name, kb_info=kb_info, vs_type=vs_type, embed_model=embed_model
         )
+        # 添加到事务中
         session.add(kb)
     else:  # update kb with new vs_type and embed_model
         # 找到了知识库实例，更新知识库实例的字段  kb_info（ 知识库简介）vs_type（向量库类型，如fiass等）  embed_model

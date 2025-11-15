@@ -6,6 +6,8 @@ from chatchat.server.db.base import Base
 class KnowledgeFileModel(Base):
     """
     知识文件模型
+
+    、、表示知识库中具体的单个文件的元信息---如文件名，扩展名，所属kb名，加载器/分割器，文件版本/大小/修改时间，分片后的文档数量等(没有存储原始文件)
     """
 
     __tablename__ = "knowledge_file"

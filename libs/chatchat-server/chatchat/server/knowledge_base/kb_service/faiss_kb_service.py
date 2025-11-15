@@ -57,8 +57,10 @@ class FaissKBService(KBService):
         self.load_vector_store()
 
     def do_drop_kb(self):
+        # 清空这个知识库的表（向量库）
         self.clear_vs()
         try:
+            # 递归删除知识库目录及其所有内容
             shutil.rmtree(self.kb_path)
         except Exception:
             pass
