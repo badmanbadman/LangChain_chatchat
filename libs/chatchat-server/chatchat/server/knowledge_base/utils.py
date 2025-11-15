@@ -207,30 +207,33 @@ def get_loader(loader_name: str, file_path: str, loader_kwargs: Dict = None):
         # 、、按理说到这步来的时候已经在前面校验过文档类型了，不应该报这个错来，后续审查下前端逻辑
         msg = f"为文件{file_path}查找加载器{loader_name}时出错：{e}"
         logger.error(f"{e.__class__.__name__}: {msg}")
+        # 、、报错就默认使用langchain_community.document_loader中的加载器
         document_loaders_module = importlib.import_module(
             "langchain_community.document_loaders"
         )
-        # 默认就给他加载个非结构化的加载器来解析
+        # 、、报错就默认就给他加载个非结构化的加载器来解析
         DocumentLoader = getattr(document_loaders_module, "UnstructuredFileLoader")
 
     if loader_name == "UnstructuredFileLoader":
         loader_kwargs.setdefault("autodetect_encoding", True)
     elif loader_name == "CSVLoader":
         if not loader_kwargs.get("encoding"):
-            # 如果未指定 encoding，自动识别文件编码类型，避免langchain loader 加载文件报编码错误
+            # 、、如果未指定 encoding，自动识别文件编码类型，避免langchain loader 加载文件报编码错误
             with open(file_path, "rb") as struct_file:
+                # 、、自动检测文件的字符编码
                 encode_detect = chardet.detect(struct_file.read())
             if encode_detect is None: 
+                # 、、检测不出来就默认给个utf-8
                 encode_detect = {"encoding": "utf-8"}
             loader_kwargs["encoding"] = encode_detect["encoding"]
-
+    # 、、以下2个加载器都是用langchain_community.document_loader中的，需要传入参数，jq_schema,text_content两个参数
     elif loader_name == "JSONLoader":
         loader_kwargs.setdefault("jq_schema", ".")
         loader_kwargs.setdefault("text_content", False)
     elif loader_name == "JSONLinesLoader":
         loader_kwargs.setdefault("jq_schema", ".")
         loader_kwargs.setdefault("text_content", False)
-
+    # 将文件路径，和一些加载器必要的入参传进加载器，并实例化一个加载器（loader）出来
     loader = DocumentLoader(file_path, **loader_kwargs)
     return loader
 
@@ -374,6 +377,7 @@ class KnowledgeFile:
                 file_path=self.filepath,
                 loader_kwargs=self.loader_kwargs,
             )
+            # TextLoader 类型为 langchain.community_loader的加载器类型
             if isinstance(loader, TextLoader):
                 loader.encoding = "utf8"
                 self.docs = loader.load()
