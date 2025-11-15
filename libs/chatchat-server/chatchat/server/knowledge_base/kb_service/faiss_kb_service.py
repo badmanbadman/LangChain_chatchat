@@ -85,7 +85,9 @@ class FaissKBService(KBService):
         docs: List[Document],
         **kwargs,
     ) -> List[Dict]:
+        # 、、将docs遍历获取里面的page_content,并放入texts数组中
         texts = [x.page_content for x in docs]
+        # 、、将docs遍历获取里面的metadata，放入metadatas数组中
         metadatas = [x.metadata for x in docs]
         with self.load_vector_store().acquire() as vs:
             embeddings = vs.embeddings.embed_documents(texts)

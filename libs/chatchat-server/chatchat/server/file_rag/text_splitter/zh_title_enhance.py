@@ -90,6 +90,7 @@ def zh_title_enhance(docs: Document) -> Document:
     title = None
     if len(docs) > 0:
         for doc in docs:
+            #、、 判断是否为标题，这里是作者自定义了一些是否是标题的规则
             if is_possible_title(doc.page_content):
                 doc.metadata["category"] = "cn_Title"
                 title = doc.page_content

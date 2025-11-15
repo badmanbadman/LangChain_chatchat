@@ -137,6 +137,11 @@ def folder2db(
     
     def files2vs(kb_name: str, kb_files: List[KnowledgeFile]) -> List:
         result = []
+        # file2docs_in_thread 返回一个可迭代对象，每个可迭代对象中有两个值，第一个是是是否切割并装完毕的状态，
+        # 第二个是具体组装好的元组  
+            # 元组中，第一个值是知识库名称，
+            # 元组中，第二个值是文件名称，
+            # 元组中，第三个值是最重要的，是经过切割后的一个List[Document],每个Document中包含有page_content,和metadata两个最重要的信息
         for success, res in files2docs_in_thread(
             kb_files, # 传入知识库文件实例list,实例中包含由file2docs,docs2text,file2text方法和一些关键如filepath等关键属性
             chunk_size=chunk_size,#知识库中单段文本长度
@@ -144,12 +149,17 @@ def folder2db(
             zh_title_enhance=zh_title_enhance,  #是否开启中文标题加强，以及标题增强的相关配置
         ):
             if success:
+                # 获取文档信息，文件名字，切割后的List[Document](即docs)
                 _, filename, docs = res
                 print(
                     f"正在将 {kb_name}/{filename} 添加到向量库，共包含{len(docs)}条文档"
                 )
+                # 注意： ： 上面的kb_files是一个知识库文件实例list，
+                # 此处实例化的是一个单独的知识库文件，是一个初始化的知识库文件实例，这个实例中包含了如何计算splited_docs的方法，但是没有直接自动保存splited_docs的逻辑，
                 kb_file = KnowledgeFile(filename=filename, knowledge_base_name=kb_name)
+                # 将切割后的List[Document]赋值给刚才初始化好的知识库文件实例的splited_docs，
                 kb_file.splited_docs = docs
+                # 添加
                 kb.add_doc(kb_file=kb_file, not_refresh_vs_cache=True)
                 result.append({"kb_name": kb_name, "file": filename, "docs": docs})
             else:

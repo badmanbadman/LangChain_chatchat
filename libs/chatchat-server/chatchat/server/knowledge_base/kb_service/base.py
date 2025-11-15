@@ -127,17 +127,22 @@ class KBService(ABC):
         status = delete_kb_from_db(self.kb_name)
         return status
 
+    # 保存docs（切割处理过的文件，主要保存的信息包含有List[Document],）
+    # base中只做了通用的基础操作，改metadata信息，其他具体的保存逻辑都是继承KBService然后自己去实现的相关逻辑
     def add_doc(self, kb_file: KnowledgeFile, docs: List[Document] = [], **kwargs):
         """
         向知识库添加文件
         如果指定了docs，则不再将文本向量化，并将数据库对应条目标为custom_docs=True
         """
+        # 、、检查嵌入模型没有就直接return掉
         if not self.check_embed_model()[0]:
             return False
-
         if docs:
+        # 、、如果指定了docs，则不再将文本向量化【这个分支我看来下代码不会走进来，应该是为了方便扩展或者调试用的，
+        # 、、因为代码中其他地方调用都是传入一个Knowledge实例进来，通过示例来进一步保护一定会进行切割才行】
             custom_docs = True
         else:
+            # 、、这个方法返回的是个就是个docs，由于我们传入的Knowledge中包含了splited_docs的数据，所以就不会再次进行切割了，直接用切割好的
             docs = kb_file.file2text()
             custom_docs = False
 

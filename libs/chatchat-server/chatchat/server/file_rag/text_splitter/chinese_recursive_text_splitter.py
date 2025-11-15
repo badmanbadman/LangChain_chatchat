@@ -9,15 +9,16 @@ from chatchat.utils import build_logger
 
 logger = build_logger()
 
-
+# 从末尾开始分割
 def _split_text_with_regex_from_end(
     text: str, separator: str, keep_separator: bool
 ) -> List[str]:
-    # Now that we have the separator, split the text
+    # 、、从文本末尾开始使用正则表达式分割
     if separator:
         if keep_separator:
-            # The parentheses in the pattern keep the delimiters in the result.
+            # 使用括号保留分隔符
             _splits = re.split(f"({separator})", text)
+            # 将文本片段和分隔符配对合并
             splits = ["".join(i) for i in zip(_splits[0::2], _splits[1::2])]
             if len(_splits) % 2 == 1:
                 splits += _splits[-1:]
@@ -39,16 +40,22 @@ class ChineseRecursiveTextSplitter(RecursiveCharacterTextSplitter):
     ) -> None:
         """Create a new TextSplitter."""
         super().__init__(keep_separator=keep_separator, **kwargs)
+        # 、、分隔符
         self._separators = separators or [
-            "\n\n",
-            "\n",
-            "。|！|？",
-            "\.\s|\!\s|\?\s",
-            "；|;\s",
-            "，|,\s",
+            "\n\n",        # 双换行（段落分隔）
+            "\n",          # 单换行
+            "。|！|？",     # 中文句子结束标点
+            "\.\s|\!\s|\?\s",  # 英文句子结束标点加空格
+            "；|;\s",      # 分号（中英文）
+            "，|,\s",      # 逗号（中英文）
         ]
         self._is_separator_regex = is_separator_regex
-
+    # 、、重写  _split_text方法，其他继承自langchain的RecursiveCharacterTextSplitter
+    # 这个方法实现了递归分割策略：
+        # 选择分隔符：从粗到细选择第一个在文本中存在的分隔符
+        # 分割文本：使用选定的分隔符分割
+        # 递归处理：对过长的片段使用更细的分隔符继续分割
+        # 合并小片段：将小片段合并到合适的块大小
     def _split_text(self, text: str, separators: List[str]) -> List[str]:
         """Split incoming text and return chunks."""
         final_chunks = []

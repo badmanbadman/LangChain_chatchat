@@ -192,12 +192,12 @@ def get_loader(loader_name: str, file_path: str, loader_kwargs: Dict = None):
             "RapidOCRDocLoader",
             "RapidOCRPPTLoader",
         ]:
-            # 如果是这几种加载器就返回自定义的在file_rag下面的document_loader
+            #、、 如果是这几种加载器就返回自定义的在file_rag下面的document_loader
             document_loaders_module = importlib.import_module(
                 "chatchat.server.file_rag.document_loaders"
             )
         else:
-            # 如果是其他类型的加载器，就使用langchain_community提供的document_loader加载器
+            #、、 如果是其他类型的加载器，就使用langchain_community提供的document_loader加载器
             document_loaders_module = importlib.import_module(
                 "langchain_community.document_loaders"
             )
@@ -243,11 +243,19 @@ def make_text_splitter(splitter_name, chunk_size, chunk_overlap):
     """
     根据参数获取特定的分词器
     """
+    # 默认使用的是作者实现的中文切割器。
     splitter_name = splitter_name or "SpacyTextSplitter"
     try:
         if (
             splitter_name == "MarkdownHeaderTextSplitter"
-        ):  # MarkdownHeaderTextSplitter特殊判定
+        ):  # MarkdownHeaderTextSplitter特殊判定 
+            # 、、对markdown的header进行特殊识别，      
+            #  "headers_to_split_on": [
+            #     ("#", "head1"),
+            #     ("##", "head2"),
+            #     ("###", "head3"),
+            #     ("####", "head4"),
+            # ]
             headers_to_split_on = Settings.kb_settings.text_splitter_dict[splitter_name][
                 "headers_to_split_on"
             ]
@@ -266,7 +274,7 @@ def make_text_splitter(splitter_name, chunk_size, chunk_overlap):
 
             if (
                 Settings.kb_settings.text_splitter_dict[splitter_name]["source"] == "tiktoken"
-            ):  # 从tiktoken加载
+            ):  # 从tiktoken加载（、、tiktoken是OpenAI开发的一个快速BPE分词器，用于将文本转换成模型可以理解的token序列）
                 try:
                     text_splitter = TextSplitter.from_tiktoken_encoder(
                         encoding_name=Settings.kb_settings.text_splitter_dict[splitter_name][
@@ -369,20 +377,33 @@ class KnowledgeFile:
     def file2docs(self, refresh: bool = False):
         if self.docs is None or refresh:
             logger.info(f"{self.document_loader_name} used for {self.filepath}")
-            # document_loader_name (在初始化的时候定义了，是根据文件的扩展名自动计算而来)
-            # filepath（初始化的时候定义了，实例化的时候穿进来是filename，但是通过知识库的名称和一些固定规则，如知识库名称下面的content文件夹，来拼接起来的filepath路径）
-            # loader_kwargs： 不知道哪里来的，初始化的时候我就没找到哪里穿进来的
+            #、、 document_loader_name (在初始化的时候定义了，是根据文件的扩展名自动计算而来)
+            # 、、filepath（初始化的时候定义了，实例化的时候穿进来是filename，但是通过知识库的名称和一些固定规则，如知识库名称下面的content文件夹，来拼接起来的filepath路径）
+            #、、 loader_kwargs： 不知道哪里来的，初始化的时候我就没找到哪里穿进来的
             loader = get_loader(
                 loader_name=self.document_loader_name,
                 file_path=self.filepath,
                 loader_kwargs=self.loader_kwargs,
             )
-            # TextLoader 类型为 langchain.community_loader的加载器类型
+            # 、、TextLoader 类型为 langchain.community_loader的加载器类型
             if isinstance(loader, TextLoader):
                 loader.encoding = "utf8"
                 self.docs = loader.load()
             else:
                 self.docs = loader.load()
+        # docs为一个List[Document]，每个Document包括： page_content： 文本内存，字符串类型，metadata： 元数据，字典类型，包含文件名、来源，位置等，
+        # Document(
+        #     page_content="具体的文本内容",  # 字符串
+        #     metadata={                     # 字典，包含各种元数据
+        #         'source': '文件路径',
+        #         'filename': '文件名',
+        #         'filetype': 'text',
+        #         'languages': ['zh'],
+        #         'category': '文本类型',
+        #         'page_number': 1,
+        #         # ... 其他元数据
+        #     }
+        # )
         return self.docs
 
     def docs2texts(
@@ -394,11 +415,15 @@ class KnowledgeFile:
         chunk_overlap: int = Settings.kb_settings.OVERLAP_SIZE,
         text_splitter: TextSplitter = None,
     ):
+        # 这个地方应该只是为了做个保护，如果没有传docs就自己在获取一次，
         docs = docs or self.file2docs(refresh=refresh)
+        # 如果是docs为None
         if not docs:
             return []
+        # 如果文件的扩展名不是.csv,就进行下面的文本切割环节
         if self.ext not in [".csv"]:
             if text_splitter is None:
+                # 切割器为None（即没有设置），获取文本切割器
                 text_splitter = make_text_splitter(
                     splitter_name=self.text_splitter_name,
                     chunk_size=chunk_size,
@@ -407,6 +432,7 @@ class KnowledgeFile:
             if self.text_splitter_name == "MarkdownHeaderTextSplitter":
                 docs = text_splitter.split_text(docs[0].page_content)
             else:
+                # 、、使用切割器对生成的docs（List[Document]）的进行切割,并返回一个新的List[Document],Document中的content更加的短，并且加入新的元数据如index，切割前的信息等等
                 docs = text_splitter.split_documents(docs)
 
         if not docs:
@@ -414,8 +440,10 @@ class KnowledgeFile:
 
         print(f"文档切分示例：{docs[0]}")
         if zh_title_enhance:
+            # 、、如果开启文章标题加强，会额外加入一些提示词，将title的信息加入到page_content中，并且加入额外的元数据
             docs = func_zh_title_enhance(docs)
         self.splited_docs = docs
+        # 、、将切割器切割并重新生成的List[Document] 返回，每个Document中包含有page_content，metadata
         return self.splited_docs
 
     def file2text(
@@ -427,6 +455,7 @@ class KnowledgeFile:
         text_splitter: TextSplitter = None,
     ):
         if self.splited_docs is None or refresh:
+            # 返回一个List[Document]
             docs = self.file2docs()
             self.splited_docs = self.docs2texts(
                 docs=docs,
@@ -436,6 +465,7 @@ class KnowledgeFile:
                 chunk_overlap=chunk_overlap,
                 text_splitter=text_splitter,
             )
+        # 将切割器切割并重新生成的List[Document] 返回， 每个Document中包含有page_content，metadata
         return self.splited_docs
 
     def file_exist(self):
@@ -448,6 +478,8 @@ class KnowledgeFile:
         return os.path.getsize(self.filepath)
 
 
+# 这个方法主要是对文档进行了切割并且生成page_content 更小的Document，并且进行组装List。
+# 返回 第一参数，切割成功状态，第二个是个元组（第一个参数是知识库名称，第二个参数是文件名称，第三个参数是切割过后的Document的page_content更加小的List[Document]
 def files2docs_in_thread_file2docs(
     *, file: KnowledgeFile, **kwargs
 ) -> Tuple[bool, Tuple[str, str, List[Document]]]:
@@ -494,6 +526,7 @@ def files2docs_in_thread(
                 kwargs.update(file)
                 # 、、通过字典中的filename和kb_name，生成一个Knowledge的实例
                 file = KnowledgeFile(filename=filename, knowledge_base_name=kb_name)
+
             kwargs["file"] = file  #、、最终这file还是要以Knowledge实例的形式来承载
             kwargs["chunk_size"] = chunk_size #知识库中单段文本的长度
             kwargs["chunk_overlap"] = chunk_overlap #知识库中相邻文本重合长度
@@ -504,6 +537,9 @@ def files2docs_in_thread(
         except Exception as e:
             yield False, (kb_name, filename, str(e))
 
+    # 在线程池中批量进行切割组装逻辑，具体来讲就是执行files2docs_in_thread_file2docs方法
+    # files2docs_in_thread_file2docs的执行会接收到上面设置的文件实例，单段落文本长度大小等等参数，最终会体现在切割器中的参数（这里修改其实指向的是langchain的类的chunk_sized等，作者的自定义切割器也是继承了langchain的切割器的类）
+    # 至此返回一个由yield控制的可迭代对象，方便将文本切割后的List[Document]返回出去
     for result in run_in_thread_pool(
         func=files2docs_in_thread_file2docs, params=kwargs_list
     ):

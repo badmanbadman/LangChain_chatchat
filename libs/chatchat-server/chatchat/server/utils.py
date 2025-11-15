@@ -803,6 +803,7 @@ def run_in_thread_pool(
     tasks = []
     with ThreadPoolExecutor() as pool:
         for kwargs in params:
+            # 、、将kwargs传递给func执行
             tasks.append(pool.submit(func, **kwargs))
 
         for obj in as_completed(tasks):
