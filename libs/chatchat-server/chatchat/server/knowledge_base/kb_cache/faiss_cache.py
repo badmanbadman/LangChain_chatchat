@@ -66,6 +66,7 @@ class _FaissPool(CachePool):
         doc = Document(page_content="init", metadata={})
         vector_store = FAISS.from_documents([doc], embeddings, normalize_L2=True)
         ids = list(vector_store.docstore._dict.keys())
+        # 清空向量库 
         vector_store.delete(ids)
         return vector_store
 

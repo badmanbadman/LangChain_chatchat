@@ -314,25 +314,29 @@ class LocalAIEmbeddings(BaseModel, Embeddings):
         )
 
     def embed_documents(
-        self, texts: List[str], chunk_size: Optional[int] = 0
+        self, texts: List[str],
     ) -> List[List[float]]:
-        """Call out to LocalAI's embedding endpoint for embedding search docs.
-
-        Args:
-            texts: The list of texts to embed.
-            chunk_size: The chunk size of embeddings. If None, will use the chunk size
-                specified by the class.
-
-        Returns:
-            List of embeddings, one for each text.
-        """
-
-        # call _embedding_func for each text with multithreads
+        # 、、将每个text文本向量化任务放入单独的task,然后通过线程池（run_in_thread_pool）并发执行，
         def task(seq, text):
             return (seq, self._embedding_func(text, engine=self.deployment))
 
+        # 、、构造多线程数据list，将传进来的texts进行循环生成 一个list[seq, text]，第一个seq用来保持顺序，第二个text是要向量化的文本
         params = [{"seq": i, "text": text} for i, text in enumerate(texts)]
+        # 、、线程池中执行
         result = list(run_in_thread_pool(func=task, params=params))
+        # 、、将result根据seq  （seq就是x[0]）进行排序,这是并行计算中常用的 “ 标记 -> 并行处理 -> 重排序” 的模式    
+        # lambda 函数：是Python中的匿名函数，用于创建小型的一次性的函数对象。
+        # lambda 函数的语法格式：lambda 参数列表：表达式
+            # 普通函数定义
+            # def add(x, y):
+            #     return x + y
+
+            # # 等价的 lambda 函数
+            # add_lambda = lambda x, y: x + y
+
+            # # 使用
+            # print(add(2, 3))        # 输出: 5
+            # print(add_lambda(2, 3)) # 输出: 5
         result = sorted(result, key=lambda x: x[0])
         return [x[1] for x in result]
 
