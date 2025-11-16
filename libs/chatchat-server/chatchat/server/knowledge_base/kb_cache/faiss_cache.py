@@ -5,7 +5,7 @@ from langchain.schema import Document
 from langchain.vectorstores.faiss import FAISS
 
 from chatchat.settings import Settings
-from chatchat.server.knowledge_base.kb_cache.base import *
+from chatchat.server.knowledge_base.kb_cache.base import * # 注意这里：引入了base.py中的所有 CachePool, ThreadSafeObject, logger
 from chatchat.server.knowledge_base.utils import get_vs_path
 from chatchat.server.utils import get_Embeddings, get_default_embedding
 
@@ -24,6 +24,9 @@ def _new_ds_search(self, search: str) -> Union[str, Document]:
 InMemoryDocstore.search = _new_ds_search
 
 
+# 这里继承了ThreadSafeObject后，又
+# 对Faiss的特定操作进行了扩展，添加了save，clear，docs_count的操作，
+# 对于调试日志也加入了docs_count
 class ThreadSafeFaiss(ThreadSafeObject):
     def __repr__(self) -> str:
         cls = type(self).__name__
@@ -57,7 +60,8 @@ class _FaissPool(CachePool):
         kb_name: str,
         embed_model: str = get_default_embedding(),
     ) -> FAISS:
-        # create an empty vector store
+        """创建一个新的向量库"""
+        # 获取嵌入模型
         embeddings = get_Embeddings(embed_model=embed_model)
         doc = Document(page_content="init", metadata={})
         vector_store = FAISS.from_documents([doc], embeddings, normalize_L2=True)
@@ -88,6 +92,9 @@ class _FaissPool(CachePool):
 
 
 class KBFaissPool(_FaissPool):
+    """
+    Faiss向量库的缓存池
+    """
     def load_vector_store(
         self,
         kb_name: str,
@@ -95,50 +102,66 @@ class KBFaissPool(_FaissPool):
         create: bool = True,
         embed_model: str = get_default_embedding(),
     ) -> ThreadSafeFaiss:
+        # 、、获取锁，进行原子操作，
         self.atomic.acquire()
         locked = True
+        # 、、向量库名称
         vector_name = vector_name or embed_model.replace(":", "_")
         cache = self.get((kb_name, vector_name))  # 用元组比拼接字符串好一些
         try:
+            # 、、首次进来是None直接走下面的if
             if cache is None:
+                # 、、初始化一个线程安全的Faiss向量，将self，即实例化的缓存池放到线程安全类里面去管理，然后将这个线程安全类当作value，存储在实例化的缓存池的有序字典上来存储
                 item = ThreadSafeFaiss((kb_name, vector_name), pool=self)
-                self.set((kb_name, vector_name), item)
+                # 、、设置缓存，将这个由知识库名称和向量库名称构成的元组当作 CachePool中的有序字典的缓存键key，将用线程安全类存储的实例当作value，存储在实例化的缓存池的有序字典上
+                self.set((kb_name, vector_name), item)  
                 with item.acquire(msg="初始化"):
-                    self.atomic.release()
+                    self.atomic.release()# 释放锁
                     locked = False
                     logger.info(
                         f"loading vector store in '{kb_name}/vector_store/{vector_name}' from disk."
                     )
+                    # 根据知识库名称和向量库名称来生成向量库的路径
                     vs_path = get_vs_path(kb_name, vector_name)
-
+                    # 判断index.faiss是否在vs_path路径下。index.faiss是最关键的主要的向量索引文件
                     if os.path.isfile(os.path.join(vs_path, "index.faiss")):
+                        # 存在索引文件，就从磁盘加载现有向量库
+                        # 获取嵌入模型
                         embeddings = get_Embeddings(embed_model=embed_model)
                         vector_store = FAISS.load_local(
-                            vs_path,
-                            embeddings,
-                            normalize_L2=True,
-                            allow_dangerous_deserialization=True,
+                            vs_path, #保存Faiss索引的目录路径
+                            embeddings, #用于初始化Faiss索引的嵌入模型，这个模型应该是和创建索引时用的模型一样
+                            normalize_L2=True, #是否在加载索引后对向量进行L2归一化，默认是True，通常是为了保证向量之间的相似度计算（如余弦相似度）正确
+                            allow_dangerous_deserialization=True, # 是否允许潜在的不可信反序列化，由于Faiss索引是从磁盘加载的，可能存在恶意索引文件，所以要显式设置位True确认风险
                         )
                     elif create:
-                        # create an empty vector store
+                        # 如果不存在，创建一个新的空的向量库
+
+                        # 创建目录
                         if not os.path.exists(vs_path):
                             os.makedirs(vs_path)
+                        # 创建向量库 
                         vector_store = self.new_vector_store(
                             kb_name=kb_name, embed_model=embed_model
                         )
                         vector_store.save_local(vs_path)
                     else:
                         raise RuntimeError(f"knowledge base {kb_name} not exist.")
+                    # 将向量库保存到安全线程的obj对象上，方便后面获取
                     item.obj = vector_store
+                    # 加载完成，唤醒其他所有的等待线程
                     item.finish_loading()
             else:
+                # 如缓存中有值，直接释放锁
                 self.atomic.release()
                 locked = False
         except Exception as e:
             if locked:  # we don't know exception raised before or after atomic.release
+                # 报错了就直接释放锁，不要阻塞
                 self.atomic.release()
             logger.exception(e)
             raise RuntimeError(f"向量库 {kb_name} 加载失败。")
+        # 将向量库返回（先放到了缓存中，所以此处是从缓存中获取）
         return self.get((kb_name, vector_name))
 
 
