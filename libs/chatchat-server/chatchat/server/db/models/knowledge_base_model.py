@@ -43,7 +43,7 @@ class KnowledgeBaseModel(Base):
             f"create_time='{self.create_time}')>"
         )
 
-# 创建一个对应的 Pydantic 模型
+# 创建一个对应的 Pydantic 模型 ： 用于数据验证、序列化、反序列化，API请求、响应或内部DTO
 class KnowledgeBaseSchema(BaseModel):
     id: int
     kb_name: str

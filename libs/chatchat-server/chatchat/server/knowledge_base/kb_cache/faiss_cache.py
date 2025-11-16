@@ -145,6 +145,7 @@ class KBFaissPool(_FaissPool):
                         vector_store = self.new_vector_store(
                             kb_name=kb_name, embed_model=embed_model
                         )
+                        # 向量库保存到磁盘
                         vector_store.save_local(vs_path)
                     else:
                         raise RuntimeError(f"knowledge base {kb_name} not exist.")

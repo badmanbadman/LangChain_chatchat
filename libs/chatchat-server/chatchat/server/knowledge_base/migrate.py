@@ -159,11 +159,14 @@ def folder2db(
                 kb_file = KnowledgeFile(filename=filename, knowledge_base_name=kb_name)
                 # 将切割后的List[Document]赋值给刚才初始化好的知识库文件实例的splited_docs，
                 kb_file.splited_docs = docs
-                # 添加
+                # 添加进向量库
                 kb.add_doc(kb_file=kb_file, not_refresh_vs_cache=True)
+                # 、、将完成的知识库名称，文件名，docs暂存起来
                 result.append({"kb_name": kb_name, "file": filename, "docs": docs})
             else:
+                # 失败就打印下失败的结果
                 print(res)
+        # 返回已完成的知识库名称，文件名，docs 的list
         return result
 
     kb_names = kb_names or list_kbs_from_folder()
@@ -185,8 +188,11 @@ def folder2db(
             # 、、普通文件转化为知识库文件，2个入参，第一个是知识库名称（文件夹名称），第二个是知识库（文件夹）下的所有文件list，
             # 、、返回存储向量知识库需要的文件实例list，
             kb_files = file_to_kbfile(kb_name, list_files_from_folder(kb_name))
-            # 、、将从知识库文件实例list转化存储到向量库
+            # 、、将从知识库文件实例list转化存储到向量库(内部不仅仅是向量库的更新,对关系型数据库ROM的更新也同时进行了)
             result = files2vs(kb_name, kb_files)
+            # save_vector_store这里多余吗,
+            # 因为我在files2vs中内部链路中是调用过的  files2vs -> add_doc -> do_add_doc -> save_local(这里就将embeddings过后的数据从内存中保存到了磁盘上,但是没有打印日志信息)
+            # 而下面这个方法： 调用路径是 save_vector_store -> load_vector_store -> ThreadSafeFaiss中的save -> _obj.save_local 同样调的是save_local （这个里面是打印了日志的）
             kb.save_vector_store()
         # # 不做文件内容的向量化，仅将文件元信息存到数据库
         # # 由于现在数据库存了很多与文本切分相关的信息，单纯存储文件信息意义不大，该功能取消。

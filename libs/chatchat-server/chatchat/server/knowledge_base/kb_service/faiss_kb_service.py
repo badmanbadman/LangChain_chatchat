@@ -130,15 +130,18 @@ class FaissKBService(KBService):
                 # ]
             """
             # add_embeddings方法是Faiss库中的方法,具体实现见langchain_community中的vs文件夹下faiss.py文件FAISS
+            # ids 是每个文档在添加进Faiss向量库时候生成的唯一的id（uuid） 具体见FAISS的 __add()方法的第202行
             ids = vs.add_embeddings(
                 text_embeddings=zip(texts, embeddings), metadatas=metadatas
             )
             if not kwargs.get("not_refresh_vs_cache"):
+                # 、、上面的add_embeddings是将数据储存在了内存里面，并没有进行持久化到磁盘，save_local就是根据路径去将相应的内存里面知识库持久化到磁盘
                 vs.save_local(self.vs_path)
+        # 将Faiss生成的ids和docs进行zip，生成一个可迭代对象，循环这个可迭代对象将id于doc中的metadata映射到同一个对象中，并生成数组List[id,metadata]
         doc_infos = [{"id": id, "metadata": doc.metadata} for id, doc in zip(ids, docs)]
         return doc_infos
-
-    def do_delete_doc(self, kb_file: KnowledgeFile, **kwargs):
+  
+    def do_delete_doc(self, kb_file: KnowledgeFile, **kwargs):  
         with self.load_vector_store().acquire() as vs:
             ids = [
                 k

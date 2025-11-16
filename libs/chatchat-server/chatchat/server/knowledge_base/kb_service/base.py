@@ -160,7 +160,9 @@ class KBService(ABC):
                         f"cannot convert absolute path ({source}) to relative path. error is : {e}"
                     )
             self.delete_doc(kb_file)
+            # 添加到向量库
             doc_infos = self.do_add_doc(docs, **kwargs)
+            # 将文件元信息添加到关系型数据库
             status = add_file_to_db(
                 kb_file,
                 custom_docs=custom_docs,
@@ -169,6 +171,7 @@ class KBService(ABC):
             )
         else:
             status = False
+        # 、、将添加是否完成的状态返回 
         return status
 
     def delete_doc(

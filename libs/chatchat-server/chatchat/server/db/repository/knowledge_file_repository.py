@@ -85,6 +85,7 @@ def add_docs_to_db(session, kb_name: str, file_name: str, doc_infos: List[Dict])
             doc_id=d["id"],
             meta_data=d["metadata"],
         )
+        # 会话中存储新对象obj，session.commit()的时候执行数据库插入逻辑将数据插入到file_doc表中
         session.add(obj)
     return True
 
@@ -117,7 +118,12 @@ def add_file_to_db(
     custom_docs: bool = False,
     doc_infos: List[Dict] = [],  # 形式：[{"id": str, "metadata": dict}, ...]
 ):
+    """
+    这里是将知识库的信息进行结构化管理，存储的是文件元数据，版本信息，统计信息等主要作用是文件管理，审计，统计分析等待，前面的to_add_doc是将文档向量，原始内容存储到Faiss之类的向量库，用于相似度搜索等
+    """
+    # 、、在事务中查找到和传进来的kb_name(知识库名称)一样的ORM模型，这kbORM是用来定义表结构，映射和持久化的
     kb = session.query(KnowledgeBaseModel).filter_by(kb_name=kb_file.kb_name).first()
+    # 、、这个kb应该一定是有的，在前面的代码逻辑中有个创建的逻辑，这里加个if可能还是为了更加健壮，加个保护
     if kb:
         # 如果已经存在该文件，则更新文件信息与版本号
         existing_file: KnowledgeFileModel = (
@@ -127,7 +133,7 @@ def add_file_to_db(
                 KnowledgeFileModel.file_name.ilike(kb_file.filename),
             )
             .first()
-        )
+        ) # 根据知识库名称和文件名称在 knowledge_file 表中查找是否存在（对应ROM为KnowledgeFileModel）
         mtime = kb_file.get_mtime()
         size = kb_file.get_size()
 
@@ -151,7 +157,9 @@ def add_file_to_db(
                 custom_docs=custom_docs,
             )
             kb.file_count += 1
+            # 将新对象new_file添加到session会话中，准备插入数据库。在session.commit()的时候才真正的将在KnowledgeFileModel 所映射的knowledge_file表中新加一条数据，
             session.add(new_file)
+        # 和上面的add_file_to_db一样这里的add_docs_to_db是将文件对应的Documents信息添加到数据库表名为  file_doc
         add_docs_to_db(
             kb_name=kb_file.kb_name, file_name=kb_file.filename, doc_infos=doc_infos
         )
