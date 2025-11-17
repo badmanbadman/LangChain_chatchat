@@ -54,8 +54,10 @@ class FaissKBService(KBService):
         self.vs_path = self.get_vs_path()
 
     def do_create_kb(self):
+        # 创建向量库存储的文件夹,(KBService中有定义,是KB_ROOT_PATH路径下存储的以知识库名称创建的文件夹)
         if not os.path.exists(self.vs_path):
             os.makedirs(self.vs_path)
+        # 创建向量库 
         self.load_vector_store()
 
     def do_drop_kb(self):

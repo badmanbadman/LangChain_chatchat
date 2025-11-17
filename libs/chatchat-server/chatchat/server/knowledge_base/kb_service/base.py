@@ -100,12 +100,12 @@ class KBService(ABC):
         if not os.path.exists(self.doc_path):
             os.makedirs(self.doc_path)
 
-        # 、、添加知识库到向量检索库
+        # 、、通过SQLAIchemy这个库,将数据映射为ROM然后,添加知识库到关系型数据库（如mySql等）
         # 、、入参为： kb_name(知识库名称),kb_info(知识库描述), vs_type(向量库类型)，embed_model(向量库嵌入embedding模型)
         status =  add_kb_to_db(
             self.kb_name, self.kb_info, self.vs_type(), self.embed_model
         )
-
+        # 关系型数据库对知识库的基础信息进行存储到knowledge_base这个表,成功后回调创建知识库(向量库)
         if status:
         #  成功创建知识库的回调，由子类自己实现
             self.do_create_kb()
@@ -127,8 +127,8 @@ class KBService(ABC):
         status = delete_kb_from_db(self.kb_name)
         return status
 
-    # 保存docs（切割处理过的文件，主要保存的信息包含有List[Document],）
-    # base中只做了通用的基础操作，改metadata信息，其他具体的保存逻辑都是继承KBService然后自己去实现的相关逻辑
+    # 、、保存docs（切割处理过的文件，主要保存的信息包含有List[Document],）
+    # 、、base中只做通用的基础操作，改metadata信息，其他具体的保存逻辑都是继承KBService然后自己去实现的相关逻辑
     def add_doc(self, kb_file: KnowledgeFile, docs: List[Document] = [], **kwargs):
         """
         向知识库添加文件

@@ -79,12 +79,13 @@ def init(
 
     logger.success("生成默认配置文件：成功。")
     logger.success("请先检查确认 model_settings.yaml 里模型平台、LLM模型和Embed模型信息已经正确")
-    # 、、re create kb 重新生成知识库
+    # 、、re create kb 重新生成知识库（包括向量库和数据库两个库）
     if recreate_kb:
         folder2db(kb_names=kb_names,
                   mode="recreate_vs",
                   vs_type=Settings.kb_settings.DEFAULT_VS_TYPE,
                   embed_model=get_default_embedding())
+        # 、、logger可以加个样式~，学到啦
         logger.success("<green>所有初始化已完成，执行 chatchat start -a 启动服务。</green>")
     else:
         logger.success("执行 chatchat kb -r 初始化知识库，然后 chatchat start -a 启动服务。")

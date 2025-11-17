@@ -49,7 +49,7 @@ class ThreadSafeObject:
     def key(self):
         return self._key
 
-    """
+    """@contextmanager
     @contextmanager是Python中的contextlib模块的一个装饰器，用于创建上下文管理器
     上下文管理器允许你实现__enter__和__exit__方法，但是使用@contextmanager可以通过生成器函数更加简洁的实现
 
@@ -66,7 +66,7 @@ class ThreadSafeObject:
         try:
             self._lock.acquire() #获取锁
             if self._pool is not None: #如果存在缓存池
-                # 将缓存池中的有序字典容器中的数据进行移动，将当前这个key的值移到最后
+                # 将缓存池中的有序字典容器中的数据进行移动，将当前这个key的值移到最后(因为刚被触发,相当于是最新别用过的)
                 self._pool._cache.move_to_end(self.key)
             logger.debug(f"{owner} 开始操作：{self.key}。{msg}")
             yield self._obj

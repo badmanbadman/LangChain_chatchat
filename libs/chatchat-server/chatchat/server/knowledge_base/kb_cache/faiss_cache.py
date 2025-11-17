@@ -108,16 +108,24 @@ class KBFaissPool(_FaissPool):
         locked = True
         # 、、向量库名称
         vector_name = vector_name or embed_model.replace(":", "_")
-        cache = self.get((kb_name, vector_name))  # 用元组比拼接字符串好一些
+        key = (kb_name, vector_name) # 用元组比拼接字符串好一些 ,(这里的元组是用来当作线程池的key的)
+        cache = self.get(key)  
         try:
             # 、、首次进来是None直接走下面的if
             if cache is None:
-                # 、、初始化一个线程安全的Faiss向量，将self，即实例化的缓存池放到线程安全类里面去管理，然后将这个线程安全类当作value，存储在实例化的缓存池的有序字典上来存储
-                item = ThreadSafeFaiss((kb_name, vector_name), pool=self)
+                # 、、初始化一个线程安全的Faiss向量，将self，即实例化的缓存池放到线程安全类里面去管理，
+                # 、、然后将这个线程安全类当作value，存储在实例化的缓存池的有序字典上来存储
+                # 这里需要好好理解下: 在ThreadSafeFaiss() 实例里面存储进去了key,和pool,
+                # 这个pool是什么?是self,self是KBFaissPool()这个实例,KBFaissPool是继承自_FaissPool,_FaissPool是继承自CachePool,
+                # 所以这个self中其实是包含了这三个类中的属性与方法,这个key和pool放进了ThreadSafeFaiss实例对象中并成为了ThreadSafeFaiss实例这对象中的两个属性_key,和_pool,
+                # 然后又将这个ThreadSafeFaiss实例,通过self的也就是KBFaissPool()实例的set方法,添加挂载到了KBFaissPool()实例的OrderDict中,缓存了起来,这样下次触发进来这里的时候,就不会再进catch 这里面来了
+                # 后续用的时候其实用的是这个线程安全类ThreadSafeFaiss中的所有,比如可以从acquire,save等等
+                item = ThreadSafeFaiss(key, pool=self)
                 # 、、设置缓存，将这个由知识库名称和向量库名称构成的元组当作 CachePool中的有序字典的缓存键key，将用线程安全类存储的实例当作value，存储在实例化的缓存池的有序字典上
-                self.set((kb_name, vector_name), item)  
+                self.set(key, item)  
+                # 这个 item 就等价于 self.get(key)
                 with item.acquire(msg="初始化"):
-                    self.atomic.release()# 释放锁
+                    self.atomic.release()# 释放锁,因为上面的acquire中有对self的_cache进行操作,所以在这里才释放锁,不得不说,作者很细节了
                     locked = False
                     logger.info(
                         f"loading vector store in '{kb_name}/vector_store/{vector_name}' from disk."

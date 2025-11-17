@@ -169,12 +169,13 @@ def folder2db(
         # 返回已完成的知识库名称，文件名，docs 的list
         return result
 
+    # 、、初始化的时候应该是没有传kb_name的，直接从固定的那个知识库文件夹下根据文件夹生成知识库名称
     kb_names = kb_names or list_kbs_from_folder()
     """、、获取知识库的文件夹list，作为知识库的名称list"""
     for kb_name in kb_names:
         start = datetime.now()
         # 、、通过知识库工厂：入参为 知识库名称，向量库类型，嵌入模型名称   
-        # 、、返回一个知识库的实例，里面包含了对知识库的各种方法，每种不同的vs_type,会返回不同的方法实现
+        # 、、返回一个知识库（向量库）的实例，里面包含了对知识库的各种方法，每种不同的vs_type,会返回不同的方法实现
         kb = KBServiceFactory.get_service(kb_name, vs_type, embed_model)
         if not kb.exists():
             kb.create_kb()
