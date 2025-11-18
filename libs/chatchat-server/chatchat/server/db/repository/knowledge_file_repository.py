@@ -194,13 +194,13 @@ def delete_file_from_db(session, kb_file: KnowledgeFile):
 
 @with_session
 def delete_files_from_db(session, knowledge_base_name: str):
-    # 、、删除knowledge_file表中，kb_name与knowledge_base_name（不区分大小写）匹配的所有行
+    # 、、删除knowledge_file表中，(knowledge_base_name)与kb_name不区分大小写）匹配的所有行
     session.query(KnowledgeFileModel).filter(
         KnowledgeFileModel.kb_name.ilike(knowledge_base_name)
     ).delete(synchronize_session=False)
     # 、、 synchronize_session=False 是直接在数据库层执行批量删除，性能好，但是不会在当前Session的内存对象上同步删除状态（可能导致session中残留已删除对象的缓存），Synchronize_sessionn=False表示不尝试同步
 
-    # 、、删除file_doc表中kb_name与knowledge_name（不区分大小写）匹配的所有行
+    # 、、删除file_doc表中,(knowledge_base_name)与kb_name（不区分大小写）匹配的所有行
     session.query(FileDocModel).filter(
         FileDocModel.kb_name.ilike(knowledge_base_name)
     ).delete(synchronize_session=False)
@@ -211,6 +211,7 @@ def delete_files_from_db(session, knowledge_base_name: str):
         .first()
     )
     if kb:
+        # 将(knowledge_base_name)与kb_name（不区分大小写）匹配的行的file_count 设置为0
         kb.file_count = 0
 
     session.commit()

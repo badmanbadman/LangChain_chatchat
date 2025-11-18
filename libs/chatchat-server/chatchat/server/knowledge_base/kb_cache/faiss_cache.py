@@ -39,6 +39,7 @@ class ThreadSafeFaiss(ThreadSafeObject):
         with self.acquire():
             if not os.path.isdir(path) and create_path:
                 os.makedirs(path)
+            # 向量库保存到磁盘
             ret = self._obj.save_local(path)
             logger.info(f"已将向量库 {self.key} 保存到磁盘")
         return ret
@@ -113,8 +114,6 @@ class KBFaissPool(_FaissPool):
         try:
             # 、、首次进来是None直接走下面的if
             if cache is None:
-                # 、、初始化一个线程安全的Faiss向量，将self，即实例化的缓存池放到线程安全类里面去管理，
-                # 、、然后将这个线程安全类当作value，存储在实例化的缓存池的有序字典上来存储
                 # 这里需要好好理解下: 在ThreadSafeFaiss() 实例里面存储进去了key,和pool,
                 # 这个pool是什么?是self,self是KBFaissPool()这个实例,KBFaissPool是继承自_FaissPool,_FaissPool是继承自CachePool,
                 # 所以这个self中其实是包含了这三个类中的属性与方法,这个key和pool放进了ThreadSafeFaiss实例对象中并成为了ThreadSafeFaiss实例这对象中的两个属性_key,和_pool,
@@ -125,7 +124,7 @@ class KBFaissPool(_FaissPool):
                 self.set(key, item)  
                 # 这个 item 就等价于 self.get(key)
                 with item.acquire(msg="初始化"):
-                    self.atomic.release()# 释放锁,因为上面的acquire中有对self的_cache进行操作,所以在这里才释放锁,不得不说,作者很细节了
+                    self.atomic.release()# 释放锁,因为上面的acquire中有对self的_cache进行操作,所以在这里才释放锁
                     locked = False
                     logger.info(
                         f"loading vector store in '{kb_name}/vector_store/{vector_name}' from disk."
@@ -134,9 +133,10 @@ class KBFaissPool(_FaissPool):
                     vs_path = get_vs_path(kb_name, vector_name)
                     # 判断index.faiss是否在vs_path路径下。index.faiss是最关键的主要的向量索引文件
                     if os.path.isfile(os.path.join(vs_path, "index.faiss")):
-                        # 存在索引文件，就从磁盘加载现有向量库
-                        # 获取嵌入模型
+                        # 存在索引文件(就从磁盘加载现有向量库)
+                        # 获取嵌入模型实例,是根据模型名称(embed_model和配置文件里面的配置如api_base_url等,获取到运行后的模型实例)
                         embeddings = get_Embeddings(embed_model=embed_model)
+                        # 根据vs_path从磁盘加载现有向量库
                         vector_store = FAISS.load_local(
                             vs_path, #保存Faiss索引的目录路径
                             embeddings, #用于初始化Faiss索引的嵌入模型，这个模型应该是和创建索引时用的模型一样
@@ -153,11 +153,13 @@ class KBFaissPool(_FaissPool):
                         vector_store = self.new_vector_store(
                             kb_name=kb_name, embed_model=embed_model
                         )
-                        # 向量库保存到磁盘
+                        # 向量库保存到磁盘(这里保存的也是一个空的向量库)
                         vector_store.save_local(vs_path)
                     else:
                         raise RuntimeError(f"knowledge base {kb_name} not exist.")
                     # 将向量库保存到安全线程的obj对象上，方便后面获取
+                    # 向量库实例vector_store现在已经持久化在磁盘上了,现在需要把他再保存到ThreadSafeFaiss这个实例的obj属性上,
+                    # ThreadSafeFaiss实例是保存在self也就是KBFaissPool()实例的有序字典上的哦,所以说最终是保存在了缓存池里的cache对象上
                     item.obj = vector_store
                     # 加载完成，唤醒其他所有的等待线程
                     item.finish_loading()
@@ -171,8 +173,8 @@ class KBFaissPool(_FaissPool):
                 self.atomic.release()
             logger.exception(e)
             raise RuntimeError(f"向量库 {kb_name} 加载失败。")
-        # 将向量库返回（先放到了缓存中，所以此处是从缓存中获取）
-        return self.get((kb_name, vector_name))
+        # 将向量库返回,注意了,这个返回的是ThreadSafeFaiss的一个实例哦,（先放到了缓存中，所以此处是从缓存中获取）,上面的一堆操作是 : 先加锁,准备,看缓存中有没有,有就直接返回,并释放锁,没有就走创建的一堆逻辑
+        return self.get(key)
 
 
 class MemoFaissPool(_FaissPool):

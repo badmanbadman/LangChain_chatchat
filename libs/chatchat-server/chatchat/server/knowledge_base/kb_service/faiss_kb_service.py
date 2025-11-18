@@ -38,7 +38,8 @@ class FaissKBService(KBService):
         )
 
     def save_vector_store(self):
-        self.load_vector_store().save(self.vs_path)
+        # 向量库保存到磁盘
+        self.load_vector_store().save(self.vs_path) 
 
     def get_doc_by_ids(self, ids: List[str]) -> List[Document]:
         with self.load_vector_store().acquire() as vs:
@@ -144,6 +145,7 @@ class FaissKBService(KBService):
         return doc_infos
   
     def do_delete_doc(self, kb_file: KnowledgeFile, **kwargs):  
+        # docstore 是Faiss实例上的属性，
         with self.load_vector_store().acquire() as vs:
             ids = [
                 k
@@ -158,11 +160,13 @@ class FaissKBService(KBService):
 
     def do_clear_vs(self):
         with kb_faiss_pool.atomic:
+            # 从缓存池中删除
             kb_faiss_pool.pop((self.kb_name, self.vector_name))
         try:
+            # 根据文件夹讲知识库文件删除
             shutil.rmtree(self.vs_path)
-        except Exception:
-            ...
+        except Exception as e:
+            print('清空缓存池or删除文件出错了:', e)
         os.makedirs(self.vs_path, exist_ok=True)
 
     def exist_doc(self, file_name: str):

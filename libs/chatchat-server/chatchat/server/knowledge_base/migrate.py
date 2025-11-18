@@ -187,7 +187,7 @@ def folder2db(
             # 、、新建一个向量知识库，操作包括创建知识库content文件夹，实例化一个知识库ORM模型，并添加到事务中
             kb.create_kb() 
             # 、、普通文件转化为知识库文件，2个入参，第一个是知识库名称（文件夹名称），第二个是知识库（文件夹）下的所有文件list，
-            # 、、返回存储向量知识库需要的文件实例list，
+            # 、、返回存储向量知识库需要的  知识库文件实例list，
             kb_files = file_to_kbfile(kb_name, list_files_from_folder(kb_name))
             # 、、将从知识库文件实例list转化存储到向量库(内部不仅仅是向量库的更新,对关系型数据库ROM的更新也同时进行了)
             result = files2vs(kb_name, kb_files)

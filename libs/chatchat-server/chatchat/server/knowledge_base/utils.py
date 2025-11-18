@@ -65,6 +65,7 @@ def list_kbs_from_folder():
 
 
 def list_files_from_folder(kb_name: str):
+    """返回文件名称List"""
     doc_path = get_doc_path(kb_name)
     # 所有知识库（文件夹）下的文件存储变量
     result = []
@@ -428,7 +429,7 @@ class KnowledgeFile:
                     splitter_name=self.text_splitter_name,
                     chunk_size=chunk_size,
                     chunk_overlap=chunk_overlap,
-                )
+                )   
             if self.text_splitter_name == "MarkdownHeaderTextSplitter":
                 docs = text_splitter.split_text(docs[0].page_content)
             else:

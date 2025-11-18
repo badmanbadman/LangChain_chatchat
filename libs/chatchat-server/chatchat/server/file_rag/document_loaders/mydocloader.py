@@ -117,6 +117,10 @@ class RapidOCRDocLoader(UnstructuredFileLoader):
 
         text = doc2text(self.file_path)
         from unstructured.partition.text import partition_text
+        """
+        unstructured这个库的核心使命是：将非结构化的数据（如文档、邮件、网页等）转换成结构化的数据,
+            它的输入是一个杂乱的、没有明确标签的文本块，输出是一个结构化的元素列表
+        """
         # 、、将连续的文本流智能地分割成有意义的文档块（chunks），这些块在RAG系统中更适合进行向量化和检索。
         # 、、最终返回的是List[document]
         #    每个document包括：
