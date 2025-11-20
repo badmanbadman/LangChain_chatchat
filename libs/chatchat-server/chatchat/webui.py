@@ -14,7 +14,6 @@ from chatchat.webui_pages.utils import *
 api = ApiRequest(base_url=api_address())
 
 if __name__ == "__main__":
-    is_lite = "lite" in sys.argv  # TODO: remove lite mode
 
     st.set_page_config(
         "Langchain-Chatchat WebUI",
@@ -68,10 +67,10 @@ if __name__ == "__main__":
         sac.divider()
 
     if selected_page == "知识库管理":
-        knowledge_base_page(api=api, is_lite=is_lite)
+        knowledge_base_page(api=api)
     elif selected_page == "RAG 对话":
         kb_chat(api=api)
     elif selected_page == "MCP 管理":
         mcp_management_page(api=api)
     else:
-        dialogue_page(api=api, is_lite=is_lite)
+        dialogue_page(api=api)

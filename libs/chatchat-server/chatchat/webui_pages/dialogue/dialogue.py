@@ -148,7 +148,6 @@ def list_tools(_api: ApiRequest):
 
 def dialogue_page(
     api: ApiRequest,
-    is_lite: bool = False,
 ):
     ctx = chat_box.context
     ctx.setdefault("uid", uuid.uuid4().hex)
