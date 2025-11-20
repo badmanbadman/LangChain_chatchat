@@ -95,7 +95,7 @@ class FaissKBService(KBService):
         # 、、将docs遍历获取里面的metadata，放入metadatas数组中
         metadatas = [x.metadata for x in docs]
         # 、、加个类型方便跳转源文件
-        vs: FAISS
+        # vs: FAISS
         # 、、获取锁，并且加载向量库，vs 就是向量库对象，并且是线程安全的
         with self.load_vector_store().acquire()  as vs:
             """mbeddings

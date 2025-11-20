@@ -749,9 +749,9 @@ def set_httpx_config(
 
     import httpx
 
-    httpx._config.DEFAULT_TIMEOUT_CONFIG.connect = timeout
-    httpx._config.DEFAULT_TIMEOUT_CONFIG.read = timeout
-    httpx._config.DEFAULT_TIMEOUT_CONFIG.write = timeout
+    httpx._config.DEFAULT_TIMEOUT_CONFIG.connect = timeout   #httpx连接的超时设置
+    httpx._config.DEFAULT_TIMEOUT_CONFIG.read = timeout  #httpx读取的超时设置
+    httpx._config.DEFAULT_TIMEOUT_CONFIG.write = timeout #httpx写入的超时设置
 
     # 在进程范围内设置系统级代理
     proxies = {}

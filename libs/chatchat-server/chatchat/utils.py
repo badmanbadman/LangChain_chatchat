@@ -130,5 +130,6 @@ def get_config_dict(
 
 
 def get_timestamp_ms():
+    """时间戳"""
     t = time.time()
     return int(round(t * 1000))
