@@ -307,6 +307,7 @@ class KBService(ABC):
 
     @classmethod
     def list_kbs(cls):
+        """返回一个KnowledgeBaseSchema的实例组成的List，每个KnowledgeBaseSchema是一个Pydantic模型，来自KnowledgeBaseInfo的ROM"""
         return list_kbs_from_db()
 
     def exists(self, kb_name: str = None):
@@ -450,6 +451,8 @@ class KBServiceFactory:
 
     @staticmethod
     def get_service_by_name(kb_name: str) -> KBService:
+        # 、、根据知识库的名称获取知识库实例，先从关系型数据库中加载知识库信息，如果没有就直接返回None，
+        # 如果有就根据关系型数据库中的信息创建一个KBService实例
         _, vs_type, embed_model = load_kb_from_db(kb_name)
         if _ is None:  # kb not in db, just return None
             return None
@@ -461,11 +464,16 @@ class KBServiceFactory:
 
 
 def get_kb_details() -> List[Dict]:
+    """返回一个List，每个元素是一个字典包含  kb_name，vs_type， kb_info， embed_model等知识库的详细信息"""
+    # 、、获取知识库文件夹下的所有文件夹，返回一个文件夹list
     kbs_in_folder = list_kbs_from_folder()
+    # 、、获取关系型数据库表knowledge_base所映射出来的KnowledgeBaseSchema模型实例列表
     kbs_in_db: List[KnowledgeBaseSchema] = KBService.list_kbs()
+    # 、、将文件夹和数据库中的知识库信息合并，result是一个字典，key是知识库名称(也就是文件夹名字)
     result = {}
 
     for kb in kbs_in_folder:
+        # 、、组装知识库的基本信息，如知识库名字kb_name（来自原始文件路径）
         result[kb] = {
             "kb_name": kb,
             "vs_type": "",
@@ -474,21 +482,27 @@ def get_kb_details() -> List[Dict]:
             "file_count": 0,
             "create_time": None,
             "in_folder": True,
-            "in_db": False,
+            "in_db": False, #默认设为为不是来自于数据库
         }
 
     for kb_detail in kbs_in_db:
-        kb_detail = kb_detail.model_dump()
-        kb_name = kb_detail["kb_name"]
-        kb_detail["in_db"] = True
+        # 、、从KnowledgeBaseSchema模型实例中通过model_dump()方法，将Pydantic模型转为字典
+        # 、、kb_detail就是一个字典，可以通过kb_detail["kb_name"]获取知识库名称
+        kb_detail = kb_detail.model_dump() 
+        kb_name = kb_detail["kb_name"] # 知识库名称
+        kb_detail["in_db"] = True # 修改来源
         if kb_name in result:
+            # 、、如果从数据库种获取到的知识库名称能够在文件夹中找到，就将数据库种查出来的信息把kb_name的字典直接更新，result[kb] 中就会将vs_type,embed_model等值更新
             result[kb_name].update(kb_detail)
         else:
+            # 找不到就把in_folders设为False
             kb_detail["in_folder"] = False
+            # 然后把数据库查过来的信息添加到result字典里面去
             result[kb_name] = kb_detail
 
     data = []
     for i, v in enumerate(result.values()):
+        # 将字典中的值添加一个序号，然后拼接到data中，形成个List，然后返回
         v["No"] = i + 1
         data.append(v)
 

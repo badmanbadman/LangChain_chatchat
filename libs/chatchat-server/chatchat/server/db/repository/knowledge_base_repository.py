@@ -42,12 +42,16 @@ def add_kb_to_db(session, kb_name, kb_info, vs_type, embed_model):
 
 @with_session
 def list_kbs_from_db(session, min_file_count: int = -1):
+    """返回一个KnowledgeBaseSchema的实例组成的List，每个KnowledgeBaseSchema是一个Pydantic模型"""
     kbs = (
         session.query(KnowledgeBaseModel)
-        .filter(KnowledgeBaseModel.file_count > min_file_count)
-        .all()
+        .filter(KnowledgeBaseModel.file_count > min_file_count) # 、、过滤文件数量大于min_file_count的知识库
+        .all() #、、 获取所有符合条件的知识库
     )
-    kbs = [KnowledgeBaseSchema.model_validate(kb) for kb in kbs]
+    # 、、model_validate是Pydantic模型的一个方法，用于从任何数据结构（通常是字典，ORM模型等）中验证并创建模型实例，
+    # 、、在这里model_validate接受一个KnowledgeBaseModel实例，然后将其转为KnowledgeBaseSchema模型实例
+    kbs = [KnowledgeBaseSchema.model_validate(kb) for kb in kbs] #、、将查询结果转换为KnowledgeBaseSchema模型
+    # 、、返回一个KnowledgeBaseSchema的实例组成的List，每个KnowledgeBaseSchema是一个Pydantic模型，所以每一个实例都是符合Pydantic模型结构的数据对象
     return kbs
 
 

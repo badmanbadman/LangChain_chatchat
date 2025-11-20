@@ -38,6 +38,7 @@ def create_kb(
         knowledge_base_name, vector_store_type, embed_model, kb_info=kb_info
     )
     try:
+        # 创建知识库，（是个空的）
         kb.create_kb()
     except Exception as e:
         msg = f"创建知识库出错： {e}"

@@ -20,6 +20,36 @@ from typing import (
 )
 
 import httpx
+"""HTTPX
+HTTPX 是一个用于Python的完全异步的HTTP客户端库，它提供了许多现代特性，支持HTTP/1.1和HTTP/2，并且能够同时用于客户端和服务器端编程。
+    异步和同步支持：HTTPX同时支持异步和同步编程模式。在异步模式下，它可以与asyncio等异步框架很好地协作，提高并发性能。在同步模式下，它也可以像Requests一样使用，但注意在同步模式下无法利用HTTP/2等特性。
+
+    HTTP/1.1和HTTP/2：HTTPX支持HTTP/1.1和HTTP/2协议，可以根据服务器的情况自动选择或手动指定协议。
+
+    连接池：HTTPX使用连接池来管理连接，可以复用连接，提高性能。
+
+    超时设置：可以设置连接超时、读取超时、写入超时等。
+
+    SSL/TLS：支持SSL/TLS加密，包括客户端证书。
+
+    代理支持：支持HTTP代理、SOCKS代理等。
+
+    Cookie持久化：可以自动处理Cookie，支持持久化。
+
+    文件上传：支持multipart文件上传。
+
+    流式请求和响应：可以处理流式上传和下载，适用于大文件。
+
+    自动解压：支持gzip、deflate等压缩格式的自动解压。
+
+    认证：支持基本的HTTP认证、Digest认证等。
+
+    兼容Requests API：HTTPX的API设计借鉴了流行的Requests库，使得从Requests迁移到HTTPX相对容易。
+
+    类型注解：HTTPX完全支持类型注解，便于在类型检查工具（如mypy）中使用。
+
+    异步支持：在异步模式下，可以使用async with来管理客户端会话，使用await进行异步请求。
+"""
 import openai
 from fastapi import FastAPI
 from langchain.tools import BaseTool
@@ -461,6 +491,7 @@ class MsgType:
 
 
 class BaseResponse(BaseModel):
+    # 、、统一返回格式
     code: int = Field(200, description="API status code")
     msg: str = Field("success", description="API status message")
     data: Any = Field(None, description="API data")
@@ -846,20 +877,30 @@ def get_httpx_client(
         **kwargs,
 ) -> Union[httpx.Client, httpx.AsyncClient]:
     """
-    helper to get httpx client with default proxies that bypass local addesses.
+    用于获取httpx客户端，设置默认代理，避免本地地址的代理。
+    自动绕过本地地址和特定服务的代理
     """
     default_proxies = {
         # do not use proxy for locahost
+        # 、、对本地地址 (127.0.0.1, localhost) 不使用代理
         "all://127.0.0.1": None,
         "all://localhost": None,
     }
     # do not use proxy for user deployed fastchat servers
+    # 处理用户指定的不需要代理的地址
+    #   例如：["192.168.1.100:8000", "api.example.com:443"]
+    #   提取主机和端口部分，设置为不使用代理
     for x in unused_proxies:
         host = ":".join(x.split(":")[:2])
         default_proxies.update({host: None})
 
     # get proxies from system envionrent
     # proxy not str empty string, None, False, 0, [] or {}
+    # 从系统环境变量读取代理设置：
+        # http_proxy: HTTP 请求的代理
+        # https_proxy: HTTPS 请求的代理
+        # all_proxy: 所有协议的代理
+    # 只有环境变量存在且非空时才设置
     default_proxies.update(
         {
             "http://": (
@@ -882,6 +923,9 @@ def get_httpx_client(
             ),
         }
     )
+
+    #处理系统的 no_proxy 环境变量
+    #将逗号分隔的主机列表添加到不代理规则中
     for host in os.environ.get("no_proxy", "").split(","):
         if host := host.strip():
             # default_proxies.update({host: None}) # Origin code
@@ -889,20 +933,23 @@ def get_httpx_client(
                 {"all://" + host: None}
             )  # PR 1838 fix, if not add 'all://', httpx will raise error
 
-    # merge default proxies with user provided proxies
+    # 用户代理配置合并
     if isinstance(proxies, str):
+        # 支持字符串格式的代理
         proxies = {"all://": proxies}
 
     if isinstance(proxies, dict):
+        # 支持字典格式的精细代理配置
+        # 用户配置会覆盖默认配置
         default_proxies.update(proxies)
 
-    # construct Client
+    # construct Client 客户端构造
     kwargs.update(timeout=timeout, proxies=default_proxies)
 
     if use_async:
-        return httpx.AsyncClient(**kwargs)
+        return httpx.AsyncClient(**kwargs) #异步客户端
     else:
-        return httpx.Client(**kwargs)
+        return httpx.Client(**kwargs) # 同步客户端
 
 
 def get_server_configs() -> Dict:

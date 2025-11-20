@@ -62,22 +62,28 @@ def file_exists(kb: str, selected_rows: List) -> Tuple[str, str]:
 
 def knowledge_base_page(api: ApiRequest):
     try:
+        # 、、将从数据获取来的知识库详情信息的list，转为一个字典，key是知识库的名称，value是知识库的详细信息，这样就可以快速通过知识库名称获取到知识库信息了
         kb_list = {x["kb_name"]: x for x in get_kb_details()}
     except Exception as e:
         st.error(
             "获取知识库信息错误，请检查是否已按照 `README.md` 中 `4 知识库初始化与迁移` 步骤完成初始化或迁移，或是否为数据库连接错误。"
         )
         st.stop()
+    # 、、将所有的知识库名称提取出来，作为一个列表
     kb_names = list(kb_list.keys())
 
+    # 、、session_state是streamlit的一个全局变量，用来存储用户的状态
     if (
-        "selected_kb_name" in st.session_state
-        and st.session_state["selected_kb_name"] in kb_names
+        "selected_kb_name" in st.session_state # 、、如果session_state中有selected_kb_name这个键
+        and st.session_state["selected_kb_name"] in kb_names # 、、并且这个键的值在kb_names中
     ):
+        # 、、将selected_kb_index设置为kb_names中对应的索引
         selected_kb_index = kb_names.index(st.session_state["selected_kb_name"])
     else:
+        # 、、否则默认选中知识库的索引为0（选中第一个）
         selected_kb_index = 0
 
+    # 、、如果session_state中没有selected_kb_info这个键，就初始化为一个空字符串
     if "selected_kb_info" not in st.session_state:
         st.session_state["selected_kb_info"] = ""
 
@@ -86,15 +92,17 @@ def knowledge_base_page(api: ApiRequest):
             return f"{kb_name} ({kb['vs_type']} @ {kb['embed_model']})"
         else:
             return kb_name
-
+    # 、、st.selectbox是streamlit的一个组件，用来创建一个下拉选择框，用来选择知识库，
+    # 、、format_func是一个格式化函数，用来格式化下拉框中的选项显示
     selected_kb = st.selectbox(
-        "请选择或新建知识库：",
-        kb_names + ["新建知识库"],
-        format_func=format_selected_kb,
-        index=selected_kb_index,
+        "请选择或新建知识库：", #label
+        kb_names + ["新建知识库"], # options,末尾追加一个选项  新建知识库
+        format_func=format_selected_kb, # 格式化函数    
+        index=selected_kb_index, # 选中的知识库索引
     )
 
-    if selected_kb == "新建知识库":
+    if selected_kb == "新建知识库": #、、如果选择了 新建知识库 
+        # 创建一个新建知识库的表单
         with st.form("新建知识库"):
             kb_name = st.text_input(
                 "新建知识库名称",
@@ -106,32 +114,40 @@ def knowledge_base_page(api: ApiRequest):
                 placeholder="知识库简介，方便Agent查找",
                 key="kb_info",
             )
-
+            # 、、创建一个列布局，左边占3份，右边占1份，并且左边的赋给col0
             col0, _ = st.columns([3, 1])
 
+            # 根据配置项中对于向量库的配置来获取向量库选择下来选项options
             vs_types = list(Settings.kb_settings.kbs_config.keys())
+            # 、、使用上面创建的布局容器，将向量库选择框放进去
             vs_type = col0.selectbox(
-                "向量库类型",
-                vs_types,
-                index=vs_types.index(Settings.kb_settings.DEFAULT_VS_TYPE),
+                "向量库类型", #、、label
+                vs_types, #、、options
+                index=vs_types.index(Settings.kb_settings.DEFAULT_VS_TYPE), #、、选中的向量库类型
                 key="vs_type",
             )
 
             col1, _ = st.columns([3, 1])
+            # with col1是streamlit的一个上下文管理器，用来创建一个列布局容器
             with col1:
+                # 、、从配置项获取所有可选择的嵌入模型
                 embed_models = list(get_config_models(model_type="embed"))
-                index = 0
+                index = 0 # 默认选择第0个
+                # 、、如果默认的嵌入模型在可选的嵌入模型列表中，就把默认的这个的index设为index
                 if get_default_embedding() in embed_models:
                     index = embed_models.index(get_default_embedding())
+                # 、、创建嵌入模型下拉框
                 embed_model = st.selectbox("Embeddings模型", embed_models, index)
-
+            
+            # 、、新建按钮 st.form_submit_button返回一个布尔值
             submit_create_kb = st.form_submit_button(
                 "新建",
-                # disabled=not bool(kb_name),
+                #、、disabled=not bool(kb_name),
                 use_container_width=True,
             )
 
         if submit_create_kb:
+            # 、、进行表单的 简单校验
             if not kb_name or not kb_name.strip():
                 st.error(f"知识库名称不能为空！")
             elif kb_name in kb_list:
@@ -139,18 +155,24 @@ def knowledge_base_page(api: ApiRequest):
             elif embed_model is None:
                 st.error(f"请选择Embedding模型！")
             else:
+                # 、、接口调用创建知识库
+                # 、、api是ApiRequest类的实例，
                 ret = api.create_knowledge_base(
                     knowledge_base_name=kb_name,
                     vector_store_type=vs_type,
                     embed_model=embed_model,
                 )
+                # 、、st.toast是streamlit的一个组件，用来显示一个消息提示框
                 st.toast(ret.get("msg", " "))
+                # 、、将session_state中的selected_kb_name设置为新建的知识库名称
                 st.session_state["selected_kb_name"] = kb_name
+                # 、、将session_state中的selected_kb_info设置为新建的知识库简介
                 st.session_state["selected_kb_info"] = kb_info
+                # 、、st.rerun是streamlit的一个函数，用来重新运行当前脚本
                 st.rerun()
 
-    elif selected_kb:
-        kb = selected_kb
+    elif selected_kb: #、、已有的知识库
+        kb = selected_kb # 、、将选中的知识库名称赋值给kb，方便下面的书写
         st.session_state["selected_kb_info"] = kb_list[kb]["kb_info"]
         # 上传文件
         files = st.file_uploader(

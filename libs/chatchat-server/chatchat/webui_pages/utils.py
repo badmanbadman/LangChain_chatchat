@@ -32,10 +32,10 @@ class ApiRequest:
         base_url: str = api_address(),
         timeout: float = Settings.basic_settings.HTTPX_DEFAULT_TIMEOUT,
     ):
-        self.base_url = base_url
-        self.timeout = timeout
-        self._use_async = False
-        self._client = None
+        self.base_url = base_url # 、、api地址
+        self.timeout = timeout # 、、超时时间
+        self._use_async = False # 、、是否使用异步模式
+        self._client = None # 、、httpx客户端实例   
 
     @property
     def client(self):
@@ -235,6 +235,7 @@ class ApiRequest:
         else:
             return ret_sync(response, as_json)
 
+    # 处理后端返回来的值
     def _get_response_value(
         self,
         response: httpx.Response,
