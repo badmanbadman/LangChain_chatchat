@@ -452,7 +452,7 @@ class KBServiceFactory:
     @staticmethod
     def get_service_by_name(kb_name: str) -> KBService:
         # 、、根据知识库的名称获取知识库实例，先从关系型数据库中加载知识库信息，如果没有就直接返回None，
-        # 如果有就根据关系型数据库中的信息创建一个KBService实例
+        # 、、如果有就根据关系型数据库中的信息创建一个KBService实例
         _, vs_type, embed_model = load_kb_from_db(kb_name)
         if _ is None:  # kb not in db, just return None
             return None

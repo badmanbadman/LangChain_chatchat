@@ -174,15 +174,16 @@ def knowledge_base_page(api: ApiRequest):
     elif selected_kb: #、、已有的知识库
         kb = selected_kb # 、、将选中的知识库名称赋值给kb，方便下面的书写
         st.session_state["selected_kb_info"] = kb_list[kb]["kb_info"]
-        # 上传文件
+        #、、 st.file_uploader是streamlit的一个组件，用来创建一个文件上传框
         files = st.file_uploader(
-            "上传知识文件：",
-            [i for ls in LOADER_DICT.values() for i in ls],
-            accept_multiple_files=True,
+            "上传知识文件：", #、、label
+            [i for ls in LOADER_DICT.values() for i in ls], #、、支持的文件类型
+            accept_multiple_files=True, #、、是否支持多选
         )
+        # 、、st.text_area是streamlit的一个组件，用来创建一个文本输入框
         kb_info = st.text_area(
-            "请输入知识库介绍:",
-            value=st.session_state["selected_kb_info"],
+            "请输入知识库介绍:", #、、label
+            value=st.session_state["selected_kb_info"], #、、默认值为session_state中的selected_kb_info
             max_chars=None,
             key=None,
             help=None,
@@ -191,8 +192,10 @@ def knowledge_base_page(api: ApiRequest):
             kwargs=None,
         )
 
+        # 、、如果知识库简介不等于session_state中的selected_kb_info，就更新session_state中的selected_kb_info
         if kb_info != st.session_state["selected_kb_info"]:
             st.session_state["selected_kb_info"] = kb_info
+            # 、、调用api更新知识库简介
             api.update_kb_info(kb, kb_info)
 
         # with st.sidebar:

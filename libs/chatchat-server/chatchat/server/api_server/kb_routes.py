@@ -28,7 +28,7 @@ from chatchat.server.knowledge_base.kb_summary_api import (
 from chatchat.server.utils import BaseResponse, ListResponse
 from chatchat.server.knowledge_base.kb_cache.faiss_cache import memo_faiss_pool
 
-
+# 、、API路由器，用于管理知识库相关的API路由
 kb_router = APIRouter(prefix="/knowledge_base", tags=["Knowledge Base Management"])
 
 

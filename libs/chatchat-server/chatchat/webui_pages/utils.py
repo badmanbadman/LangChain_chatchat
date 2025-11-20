@@ -556,6 +556,7 @@ class ApiRequest:
         )
         return self._get_response_value(response, as_json=True)
 
+    # 、、跟新知识库简介
     def update_kb_info(self, knowledge_base_name, kb_info):
         """
         对应api.py/knowledge_base/update_info接口

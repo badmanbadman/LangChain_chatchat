@@ -40,7 +40,7 @@ def create_app(run_mode: str = None):
         return RedirectResponse(url="/docs")
 
     app.include_router(chat_router)
-    app.include_router(kb_router)
+    app.include_router(kb_router) # 、、知识库相关的API路由
     app.include_router(tool_router)
     app.include_router(openai_router)
     app.include_router(server_router)
