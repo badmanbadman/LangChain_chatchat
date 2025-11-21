@@ -180,7 +180,9 @@ class KBService(ABC):
         """
         从知识库删除文件
         """
+        # 、、删除向量库中的数据
         self.do_delete_doc(kb_file, **kwargs)
+        # 、、删除关系型数据库中的数据
         status = delete_file_from_db(kb_file)
         if delete_content and os.path.exists(kb_file.filepath):
             os.remove(kb_file.filepath)

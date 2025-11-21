@@ -242,6 +242,8 @@ def knowledge_base_page(api: ApiRequest):
 
         # 知识库详情
         # st.info("请选择文件，点击按钮进行操作。")
+        # 这里应该掉接口才对  
+        # doc_details的数据是一个DataFrame，包含了知识库中的文件信息
         doc_details = pd.DataFrame(get_kb_file_details(kb))
         selected_rows = []
         if not len(doc_details):
@@ -249,7 +251,9 @@ def knowledge_base_page(api: ApiRequest):
         else:
             st.write(f"知识库 `{kb}` 中已有文件:")
             st.info("知识库中包含源文件与向量库，请从下表中选择文件后操作")
+            # doc_details.drop是pandas的一个函数，用来删除指定的列
             doc_details.drop(columns=["kb_name"], inplace=True)
+            # 重新赋值
             doc_details = doc_details[
                 [
                     "No",
@@ -267,8 +271,9 @@ def knowledge_base_page(api: ApiRequest):
             doc_details["in_db"] = (
                 doc_details["in_db"].replace(True, "✓").replace(False, "×")
             )
+            # config_aggrid函数配置了AgGrid的选项
             gb = config_aggrid(
-                doc_details,
+                doc_details, #数据源 pandas DataFrame
                 {
                     ("No", "序号"): {},
                     ("file_name", "文档名称"): {},
@@ -281,36 +286,44 @@ def knowledge_base_page(api: ApiRequest):
                     ("in_folder", "源文件"): {},
                     ("in_db", "向量库"): {},
                 },
-                "multiple",
+                "multiple", # 选择模式为多选
             )
 
             doc_grid = AgGrid(
-                doc_details,
-                gb.build(),
-                columns_auto_size_mode="FIT_CONTENTS",
-                theme="alpine",
+                doc_details, # 数据源
+                gb.build(),# 使用配置构建器生成网格选项
+                columns_auto_size_mode="FIT_CONTENTS", # 列宽自适应
+                theme="alpine", # 主题
                 custom_css={
-                    "#gridToolBar": {"display": "none"},
+                    "#gridToolBar": {"display": "none"},# 网格工具栏隐藏
                 },
-                allow_unsafe_jscode=True,
-                enable_enterprise_modules=False,
+                allow_unsafe_jscode=True,# 允许JS代码
+                enable_enterprise_modules=False, # 禁用企业模块
             )
 
+            # 选中的行
             selected_rows = doc_grid.get("selected_rows")
             if selected_rows is None:
                 selected_rows = []
             else:
+                # 、、将选中的行转换为字典格式
                 selected_rows = selected_rows.to_dict("records")
+            # 创建个4列容器 
             cols = st.columns(4)
+            # 获取文件名和文件路径
             file_name, file_path = file_exists(kb, selected_rows)
+            # 如果选中文件的存在知识库中
             if file_path:
+                # 先读取文件内容，然后关闭文件
                 with open(file_path, "rb") as fp:
-                    cols[0].download_button(
-                        "下载选中文档",
-                        fp,
-                        file_name=file_name,
-                        use_container_width=True,
-                    )
+                    file_data = fp.read()
+                #  download_button是streamlit的一个组件，可以直接根据fp来下载
+                cols[0].download_button(
+                    "下载选中文档", #按钮显示文本   
+                    data=file_data, #文件数据源
+                    file_name=file_name, #下载时候的文件名
+                    use_container_width=True,#按钮宽度充满容器
+                )
             else:
                 cols[0].download_button(
                     "下载选中文档",
@@ -329,6 +342,7 @@ def knowledge_base_page(api: ApiRequest):
                 use_container_width=True,
             ):
                 file_names = [row["file_name"] for row in selected_rows]
+                # 调接口重新向量化添加
                 api.update_kb_docs(
                     kb,
                     file_names=file_names,
@@ -370,6 +384,7 @@ def knowledge_base_page(api: ApiRequest):
             with st.spinner("向量库重构中，请耐心等待，勿刷新或关闭页面。"):
                 empty = st.empty()
                 empty.progress(0.0, "")
+                # 根据知识库名称,重新创建向量库和关系数据库中的表,
                 for d in api.recreate_vector_store(
                     kb,
                     chunk_size=chunk_size,
@@ -399,6 +414,7 @@ def knowledge_base_page(api: ApiRequest):
         docs = []
         df = pd.DataFrame([], columns=["seq", "id", "content", "source"])
         if selected_rows:
+            # 如果选中了上面的文档,就去查一下文档的被切割过的docs list结果
             file_name = selected_rows[0]["file_name"]
             docs = api.search_kb_docs(
                 knowledge_base_name=selected_kb, file_name=file_name

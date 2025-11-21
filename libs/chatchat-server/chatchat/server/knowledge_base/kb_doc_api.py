@@ -245,7 +245,7 @@ def delete_docs(
 ) -> BaseResponse:
     if not validate_kb_name(knowledge_base_name):
         return BaseResponse(code=403, msg="Don't attack me")
-
+    # urllib.parse.unquote(knowledge_base_name) 将 URL 编码的字符串解码回原始格式。但是这里似乎是不需要解码才对
     knowledge_base_name = urllib.parse.unquote(knowledge_base_name)
     kb = KBServiceFactory.get_service_by_name(knowledge_base_name)
     if kb is None:
@@ -267,6 +267,7 @@ def delete_docs(
             failed_files[file_name] = msg
 
     if not not_refresh_vs_cache:
+        # 写入磁盘(这个方法重复调用会有性能问题吗,有但是不怎么显著)
         kb.save_vector_store()
 
     return BaseResponse(
