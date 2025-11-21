@@ -168,6 +168,7 @@ def add_file_to_db(
 
 @with_session
 def delete_file_from_db(session, kb_file: KnowledgeFile):
+    # 从关系型数据库删除文件信息 
     existing_file = (
         session.query(KnowledgeFileModel)
         .filter(

@@ -160,7 +160,7 @@ class KBService(ABC):
                         f"cannot convert absolute path ({source}) to relative path. error is : {e}"
                     )
             self.delete_doc(kb_file)
-            # 添加到向量库d
+            # 添加到向量库
             doc_infos = self.do_add_doc(docs, **kwargs)
             # 将文件元信息添加到关系型数据库
             status = add_file_to_db(
@@ -201,10 +201,12 @@ class KBService(ABC):
         使用content中的文件更新向量库
         如果指定了docs，则使用自定义docs，并将数据库对应条目标为custom_docs=True
         """
+        # 检查嵌入模型
         if not self.check_embed_model()[0]:
             return False
 
         if os.path.exists(kb_file.filepath):
+            # add_doc方法中会调用一次delete_doc,这里应该可以删除掉
             self.delete_doc(kb_file, **kwargs)
             return self.add_doc(kb_file, docs=docs, **kwargs)
 

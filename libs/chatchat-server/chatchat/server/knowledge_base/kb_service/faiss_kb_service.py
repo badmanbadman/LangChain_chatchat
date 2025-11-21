@@ -95,10 +95,10 @@ class FaissKBService(KBService):
         # 、、将docs遍历获取里面的metadata，放入metadatas数组中
         metadatas = [x.metadata for x in docs]
         # 、、加个类型方便跳转源文件
-        # vs: FAISS
+        vs: FAISS
         # 、、获取锁，并且加载向量库，vs 就是向量库对象，并且是线程安全的
         with self.load_vector_store().acquire()  as vs:
-            """mbeddings
+            """embeddings
             # 、、调用向量库的embeddings，这个embeddings就是我们初始化加载向量库的时候传进去的embed_model，
             # 、、注意： 这个模型在传进去后经过了get_Embeddings函数的转化，
             # 、、这个get_Embeddings内部又将我们传入的embed_model传给了本地启动大模型的框架，如Ollama，然后返回一个实例化的类，

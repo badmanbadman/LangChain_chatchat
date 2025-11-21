@@ -121,10 +121,11 @@ def _save_files_in_thread(
                     and not override
                     and os.path.getsize(file_path) == len(file_content)
             ):
+                #、、 文件已存在直接返回404,并且提示
                 file_status = f"文件 {filename} 已存在。"
                 logger.warn(file_status)
                 return dict(code=404, msg=file_status, data=data)
-
+            #、、 文件不存在,则创建文件并写入文件内容
             if not os.path.isdir(os.path.dirname(file_path)):
                 os.makedirs(os.path.dirname(file_path))
             with open(file_path, "wb") as f:
@@ -134,11 +135,12 @@ def _save_files_in_thread(
             msg = f"{filename} 文件上传失败，报错信息为: {e}"
             logger.error(f"{e.__class__.__name__}: {msg}")
             return dict(code=500, msg=msg, data=data)
-
+    #、、 传递给save_file的参数List
     params = [
         {"file": file, "knowledge_base_name": knowledge_base_name, "override": override}
         for file in files
     ]
+    # 、、线程池中批量执行保存文件
     for result in run_in_thread_pool(save_file, params=params):
         yield result
 
@@ -155,9 +157,28 @@ def _save_files_in_thread(
 #         for result in files2docs_in_thread(files):
 #             yield json.dumps(result, ensure_ascii=False)
 
-
+#、、 知识库管理上传文档
 def upload_docs(
         files: List[UploadFile] = File(..., description="上传文件，支持多文件"),
+        #  、、knowledge_base_name: str,是类型注解,表示期望获取到的是字符串类型,
+        # Form(...)的作用表示这个参数雷兹于HTML表单 数据(而不是JSON请求体),
+        # 具体含义
+        # 对应 HTTP 请求的 Content-Type: multipart/form-data
+        # 表单数据格式：
+        # knowledge_base_name=my_kb&override=true&to_vector_store=true...
+        # ... 表示这是必须参数,不能为空, description: API文档中的描述,examples: API文档中的示例值
+        # FastAPI会根据这些声明生成API文档,并且进行自动数据验证
+            # 来自 JSON 请求体（@app.post("/path")）
+            # def func(data: MyModel): ...
+
+            # 来自查询参数（URL ?key=value）
+            # def func(param: str = Query(...)): ...
+
+            # 来自路径参数（URL /path/{param}）
+            # def func(param: str): ...
+
+            # 来自表单数据（当前情况）
+            # def func(param: str = Form(...)): ...
         knowledge_base_name: str = Form(
             ..., description="知识库名称", examples=["samples"]
         ),
@@ -174,11 +195,11 @@ def upload_docs(
     """
     if not validate_kb_name(knowledge_base_name):
         return BaseResponse(code=403, msg="Don't attack me")
-
+    # 、、查数据库,根据知识库的名字,查相关数据库信息,创建知识库服务的实例
     kb = KBServiceFactory.get_service_by_name(knowledge_base_name)
     if kb is None:
         return BaseResponse(code=404, msg=f"未找到知识库 {knowledge_base_name}")
-
+    # 、、json.loads将docs字符串转换为字典对象(知识库管理上传文档没有传递这个字段,默认转为空字典)
     docs = json.loads(docs) if docs else {}
     failed_files = {}
     file_names = list(docs.keys())
@@ -187,6 +208,7 @@ def upload_docs(
     for result in _save_files_in_thread(
             files, knowledge_base_name=knowledge_base_name, override=override
     ):
+        # 对保存到磁盘的结果进行分类,将失败的按照文件名字放入字典,成功的放入数组file_names
         filename = result["data"]["file_name"]
         if result["code"] != 200:
             failed_files[filename] = result["msg"]
@@ -288,7 +310,7 @@ def update_docs(
     """
     if not validate_kb_name(knowledge_base_name):
         return BaseResponse(code=403, msg="Don't attack me")
-
+    # 查数据库,根据知识库名字,查相关数据库信息,创建知识库服务的实例
     kb = KBServiceFactory.get_service_by_name(knowledge_base_name)
     if kb is None:
         return BaseResponse(code=404, msg=f"未找到知识库 {knowledge_base_name}")
@@ -298,13 +320,16 @@ def update_docs(
     docs = json.loads(docs) if docs else {}
 
     # 生成需要加载docs的文件列表
+    # 、、(file_names是传入的文件名列表)
     for file_name in file_names:
+        # 根据知识库名,和文件名,从knowledge_file表中获取文件详情(啥时候给file落库的,没有看的这个之前有给传入的file落库的逻辑,这个这里的file_detail返回的应该是{})
         file_detail = get_file_detail(kb_name=knowledge_base_name, filename=file_name)
         # 如果该文件之前使用了自定义docs，则根据参数决定略过或覆盖
         if file_detail.get("custom_docs") and not override_custom_docs:
             continue
         if file_name not in docs:
             try:
+                # 将传入的file根据file_name,生成一个KnowledgeFile实例,这个实例中包含有文件的路径(根据knowledge_base_name和file_name计算而来的)等,把它们组装成list,放到kb_files中
                 kb_files.append(
                     KnowledgeFile(
                         filename=file_name, knowledge_base_name=knowledge_base_name
@@ -317,18 +342,23 @@ def update_docs(
 
     # 从文件生成docs，并进行向量化。
     # 这里利用了KnowledgeFile的缓存功能，在多线程中加载Document，然后传给KnowledgeFile
+
+    # files2docs_in_thread是将KnowledgeFile传进去然后后根据实例中的文档路径等进行文档切割等步骤,并且组装出  状态,元组(知识库名称,文件名称,切割过后的Document可直接用于向量化的List)
     for status, result in files2docs_in_thread(
-            kb_files,
+            kb_files, # 这里的kb_files是一个KnowledgeFile实例的列表
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             zh_title_enhance=zh_title_enhance,
     ):
         if status:
             kb_name, file_name, new_docs = result
+            # 、、文档切割成功,则根据file_name和knowledge_base_name生成一个KnowledgeFile实例
             kb_file = KnowledgeFile(
                 filename=file_name, knowledge_base_name=knowledge_base_name
             )
+            #  、、new_docs赋值给实例中的splited_docs
             kb_file.splited_docs = new_docs
+            #  、、将KnowledgeFile实例传入到kb.update_doc中,进行向量化等操作
             kb.update_doc(kb_file, not_refresh_vs_cache=True)
         else:
             kb_name, file_name, error = result
