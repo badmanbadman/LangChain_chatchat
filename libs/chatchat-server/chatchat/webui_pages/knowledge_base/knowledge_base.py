@@ -174,7 +174,7 @@ def knowledge_base_page(api: ApiRequest):
     elif selected_kb: #、、已有的知识库
         kb = selected_kb # 、、将选中的知识库名称赋值给kb，方便下面的书写
         st.session_state["selected_kb_info"] = kb_list[kb]["kb_info"]
-        #、、 st.file_uploader是streamlit的一个组件，用来创建一个文件上传框
+        #、、 st.file_uploader是streamlit的一个组件，用来创建一个文件上传框，files是上传来的文档
         files = st.file_uploader(
             "上传知识文件：", #、、label
             [i for ls in LOADER_DICT.values() for i in ls], #、、支持的文件类型
@@ -199,24 +199,32 @@ def knowledge_base_page(api: ApiRequest):
             api.update_kb_info(kb, kb_info)
 
         # with st.sidebar:
+        # 、、使用st.expander创建一个可展开的容器，里面放置文件处理配置
         with st.expander(
-            "文件处理配置",
-            expanded=True,
+            "文件处理配置",# 、、label
+            expanded=True, #、、默认展开
         ):
+            # 创建3列布局
             cols = st.columns(3)
+            # 第一列放置 单段文本最大长度
             chunk_size = cols[0].number_input("单段文本最大长度：", 1, 1000, Settings.kb_settings.CHUNK_SIZE)
+            # 、、第二列放置 相邻文本重合长度
             chunk_overlap = cols[1].number_input(
                 "相邻文本重合长度：", 0, chunk_size, Settings.kb_settings.OVERLAP_SIZE
             )
+            # write("")的意思是为了在布局中添加一个空行
             cols[2].write("")
             cols[2].write("")
+            # 第三列放置 中文标题加强选项
             zh_title_enhance = cols[2].checkbox("开启中文标题加强", Settings.kb_settings.ZH_TITLE_ENHANCE)
-
+        
+        # st.button 会返回一个布尔值，表示按钮是否被点击
         if st.button(
             "添加文件到知识库",
             # use_container_width=True,
             disabled=len(files) == 0,
-        ):
+        ):  
+            # 将上传的文件添加到知识库，并上传相关信息到关系型数据库，向量库
             ret = api.upload_kb_docs(
                 files,
                 knowledge_base_name=kb,

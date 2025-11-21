@@ -15,6 +15,7 @@ import httpx
 from chatchat.settings import Settings
 from chatchat.server.utils import api_address, get_httpx_client, set_httpx_config, get_default_embedding
 from chatchat.utils import build_logger
+from fastapi import UploadFile
 
 
 logger = build_logger()
@@ -71,7 +72,7 @@ class ApiRequest:
         json: Dict = None,
         retry: int = 3,
         stream: bool = False,
-        **kwargs: Any,
+        **kwargs: Any, # 这个里面包含files参数
     ) -> Union[httpx.Response, Iterator[httpx.Response], None]:
         while retry > 0:
             try:
@@ -486,12 +487,13 @@ class ApiRequest:
         )
         return self._get_response_value(response, as_json=True)
 
+    # 更新知识库的docs
     def upload_kb_docs(
         self,
         files: List[Union[str, Path, bytes]],
         knowledge_base_name: str,
         override: bool = False,
-        to_vector_store: bool = True,
+        to_vector_store: bool = True, # 是否存储到向量库
         chunk_size=Settings.kb_settings.CHUNK_SIZE,
         chunk_overlap=Settings.kb_settings.OVERLAP_SIZE,
         zh_title_enhance=Settings.kb_settings.ZH_TITLE_ENHANCE,
@@ -502,17 +504,24 @@ class ApiRequest:
         对应api.py/knowledge_base/upload_docs接口
         """
 
-        def convert_file(file, filename=None):
+        def convert_file(file, filename=None) -> UploadFile:
             if isinstance(file, bytes):  # raw bytes
-                file = BytesIO(file)
+                #、、如果输入是原始的字节数据，使用BytesIO将其转换为文件对象
+                # 此时的filename可能为None,需要调用这个函数的时候传进来
+                file = BytesIO(file) 
             elif hasattr(file, "read"):  # a file io like object
+                # 、、如果输的file中有read属性,则判定它为一个文件对象,如果没有传递filename进来,就尝试从file.name中获取
                 filename = filename or file.name
             else:  # a local path
+                # 、、不是上述两种类型,就判定为文件路径字符串,
+                # 使用Path将其转换为绝对路径,并以二进制模式打开文件,如果没有传filename进来,从路径中提取文件名
                 file = Path(file).absolute().open("rb")
                 filename = filename or os.path.split(file.name)[-1]
             return filename, file
 
+        # 、、将所有的文件转换为(filename, file)的元组形式
         files = [convert_file(file) for file in files]
+        # 、、构建请求数据基本信息
         data = {
             "knowledge_base_name": knowledge_base_name,
             "override": override,
@@ -520,7 +529,7 @@ class ApiRequest:
             "chunk_size": chunk_size,
             "chunk_overlap": chunk_overlap,
             "zh_title_enhance": zh_title_enhance,
-            "docs": docs,
+            "docs": docs,  #知识库管理页面,上传文件到知识库没有传这个参数
             "not_refresh_vs_cache": not_refresh_vs_cache,
         }
 
