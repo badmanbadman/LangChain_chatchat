@@ -8,24 +8,25 @@ import json
 
 
 def mcp_management_page(api: ApiRequest, is_lite: bool = False):
+    """ 、、我看了半天觉得这个页面就是个表单页面，会对数据库进行一些增删查改，是对mcp的一些配置"""
     """
     MCP管理页面 - 连接器设置界面
     采用超感官极简主义×液态数字形态主义设计风格
     使用Streamlit语法实现
     """
     
-    # 初始化会话状态
+    # 初始化 session_state 状态
     if 'mcp_profile_loaded' not in st.session_state:
-        st.session_state.mcp_profile_loaded = False
+        st.session_state.mcp_profile_loaded = False #、、mcp 通用配置 是否已加载 默认为False
     if 'mcp_connections_loaded' not in st.session_state:
-        st.session_state.mcp_connections_loaded = False
+        st.session_state.mcp_connections_loaded = False # 、、mcp 连接器 是否已加载 默认为False
     if 'mcp_connections' not in st.session_state:
-        st.session_state.mcp_connections = []
+        st.session_state.mcp_connections = [] #、、mcp 连接器 list 默认为[]
     if 'mcp_profile' not in st.session_state:
-        st.session_state.mcp_profile = {}
+        st.session_state.mcp_profile = {} #、、 mcp 通用配置 默认为 {}
         
     if "show_add_conn" not in st.session_state:
-        st.session_state.show_add_conn = False
+        st.session_state.show_add_conn = False # 是否展示 添加连接器 默认为False
 
     # 页面CSS样式
     st.markdown("""
@@ -239,20 +240,24 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
         # 通用设置部分
         with st.expander("⚙️ 通用设置", expanded=False): 
             
-            # 加载当前配置
+            # 加载当前配置（获取数据）  、、默认为False，所以一进来就会加载，掉后端接口获取mcp通用配置
             if not st.session_state.mcp_profile_loaded:
                 try:
+                    # 、、第一次 后端也其实也没有存储，返回的也是和下面else的分支一样的默认值，但是多了个更新时间
                     profile_data = api.get_mcp_profile()
                     if profile_data:
+                        # 、保存的session_state
                         st.session_state.mcp_profile = profile_data
                         # 初始化环境变量列表
                         env_vars = st.session_state.mcp_profile.get("env_vars", {})
+                        # 、、获取后端拿过来的环境变量列表，组装为list[{"key": k, "value": v}]
                         st.session_state.env_vars_list = [
                             {"key": k, "value": v} for k, v in env_vars.items()
                         ]
+                        # 、、设置 通用配置加载状态为 True
                         st.session_state.mcp_profile_loaded = True
                     else:
-                        # 使用默认值
+                        # 使用默认值 、、后端如果没有查到（其实后端会塞个和这个默认值一样，这个分支属于前端加保护）
                         st.session_state.mcp_profile = {
                             "timeout": 30,
                             "working_dir": str(Settings.CHATCHAT_ROOT),
@@ -276,7 +281,7 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
                 "默认连接超时时间（秒）",
                 min_value=10,
                 max_value=300,
-                value=st.session_state.mcp_profile.get("timeout", 30),
+                value=st.session_state.mcp_profile.get("timeout", 30), # 、、将后端来的值设置进去
                 step=5,
                 help="设置MCP连接器的默认超时时间，范围：10-300秒"
             )
@@ -284,7 +289,7 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
             # 工作目录设置
             working_dir = st.text_input(
                 "默认工作目录",
-                value=st.session_state.mcp_profile.get("working_dir", str(Settings.CHATCHAT_ROOT)),
+                value=st.session_state.mcp_profile.get("working_dir", str(Settings.CHATCHAT_ROOT)), # 、、将后端来的值设置进去，get 中的第二个参数是 默认值
                 help="设置MCP连接器的默认工作目录"
             )
             # 环境变量设置
@@ -293,7 +298,7 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
             # 环境变量键值对编辑
             st.write("添加环境变量键值对：")
             
-            # 初始化环境变量列表
+            # 初始化环境变量列表（、、如果后端没有返回，就走这个分支）
             if 'env_vars_list' not in st.session_state:
                 st.session_state.env_vars_list = [
                     {"key": "PATH", "value": "/usr/local/bin:/usr/bin:/bin"},
@@ -301,7 +306,7 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
                     {"key": "HOME", "value": str(Settings.CHATCHAT_ROOT)}
                 ]
             
-            # 显示现有环境变量
+            # 显示现有环境变量（、、后端加了保护分支，都会返回值的，有默认值，所以上面的分支走不到，直接进这个分支）
             for i, env_var in enumerate(st.session_state.env_vars_list):
                 col1, col2, col3 = st.columns([2, 3, 1])
                 
@@ -328,17 +333,18 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
                         # 删除后立即保存到数据库
                         try:
                             env_vars_dict = {}
+                            # 、、进行数据组装（方便更新到后端去，后端需要全量的env_vars）
                             for env_var in st.session_state.env_vars_list:
                                 if env_var["key"] and env_var["value"]:
                                     env_vars_dict[env_var["key"]] = env_var["value"]
-                            
+                            # 、、调接口更新 result为更新过后保存的数据库的值
                             result = api.update_mcp_profile(
                                 timeout=timeout_value,
                                 working_dir=working_dir,
                                 env_vars=env_vars_dict
                             )
                              
-                            # 更新值
+                            # 更新值 前端进行session_state的更新
                             if key != env_var["key"] or value != env_var["value"]:
                                 st.session_state.env_vars_list[i] = {"key": key, "value": value}
                         except Exception as e:
@@ -347,6 +353,7 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
                 
             # 添加新环境变量按钮
             if st.button("➕ 添加环境变量", key="add_env_var"):
+                # 、、st.button 如果被点击就会返回一个True，然后进入这个分支代码，添加一个空的env_vars
                 st.session_state.env_vars_list.append({"key": "", "value": ""})
                 st.rerun()
             
@@ -379,7 +386,8 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
                             if env_var["key"] and env_var["value"]:
                                 env_vars_dict[env_var["key"]] = env_var["value"]
                         
-                        # 保存到数据库
+                        # 保存到数据库, 、、调更新接口的原因是，后端如果更新的时候没有查到值，会新建一个，
+                        # 、、这里返回的result是一个字典，里面包含了最新的通用设置字段
                         result = api.update_mcp_profile(
                             timeout=timeout_value,
                             working_dir=working_dir,
@@ -387,6 +395,7 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
                         )
                         
                         if result:
+                            # 下面的赋值其实使用后端返回的result中的值更加语义化些
                             st.success("通用设置已保存")
                             st.session_state.mcp_profile['timeout'] = timeout_value
                             st.session_state.mcp_profile['working_dir'] = working_dir
@@ -399,6 +408,7 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
             with col2:
                 if st.button("🔄 重置默认", use_container_width=True):
                     try:
+                        # 、、调接口重置，事实上如果你没有保存过的话，第一次进来直接点重置，就会提示你重置失败，因为数据库中没找到，直接返回了False状态，
                         result = api.reset_mcp_profile()
                         if result and result.get("success"):
                             # 重置UI状态
@@ -410,7 +420,9 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
                             st.session_state.mcp_profile_loaded = False
                             st.rerun()
                         else:
+                            # 这个报错是由于数据库没有找到相关数据，后端返回了重置失败的状态 False
                             st.error("重置失败")
+                    # 这个报错是，接口之类的报错了的提示
                     except Exception as e:
                         st.error(f"重置失败: {str(e)}")
              

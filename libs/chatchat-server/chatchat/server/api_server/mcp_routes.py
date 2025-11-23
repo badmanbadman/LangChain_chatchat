@@ -47,6 +47,7 @@ async def get_mcp_profile_endpoint():
     """
     logger.info("获取 MCP 通用配置")
     try:
+        # 、、第一次默认数据库中没有存储，所以 profile是返回None，
         profile = get_mcp_profile()
         if profile:
             logger.info("成功获取 MCP 通用配置")
@@ -59,15 +60,16 @@ async def get_mcp_profile_endpoint():
         else:
             logger.info("MCP 通用配置不存在，返回默认配置")
             # 如果不存在配置，返回默认配置
+            # 、、第一次默认数据库中没有配置，所以走这个分支，这个通用配置看起来是不需要返回id的
             return MCPProfileResponse(
-                timeout=30,
-                working_dir="/tmp",
+                timeout=30, 
+                working_dir="/tmp", #、、找不到就返回一个默认值，（前端也做了默认值的填充）
                 env_vars={
                     "PATH": "/usr/local/bin:/usr/bin:/bin",
                     "PYTHONPATH": "/app",
                     "HOME": "/tmp"
-                },
-                update_time=datetime.now().isoformat()
+                }, # 、、返回一个默认值
+                update_time=datetime.now().isoformat() 
             )
     
     except Exception as e:
@@ -109,14 +111,17 @@ async def update_mcp_profile_endpoint(profile_data: MCPProfileCreate):
     """
     logger.info(f"更新 MCP 通用配置: timeout={profile_data.timeout}, working_dir={profile_data.working_dir}")
     try:
+        # 、、更新是根据前端传过来的值进行全量更新，这里里面有2个分支，如果没有就新建一个，有就更新，成功后会返回一个id
         profile_id = update_mcp_profile(
             timeout=profile_data.timeout,
             working_dir=profile_data.working_dir,
             env_vars=profile_data.env_vars,
         )
         
+        # 获取 通用配置信息（查数据库，前面已经更新或者创建到数据库了）
         profile = get_mcp_profile()
         logger.info(f"成功更新 MCP 通用配置，ID: {profile_id}")
+        # 、、组装数据，返回
         return MCPProfileResponse(
             timeout=profile["timeout"],
             working_dir=profile["working_dir"],

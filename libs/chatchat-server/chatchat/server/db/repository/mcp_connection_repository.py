@@ -299,6 +299,7 @@ def get_mcp_profile(session) -> Optional[dict]:
     """
     获取 MCP 通用配置
     """
+    # 、、从数据库获取MCP 通用配置，（默认应该是没有返回的是None）
     profile = session.query(MCPProfileModel).first()
     if profile:
         return {
@@ -329,6 +330,7 @@ def create_mcp_profile(
         }
     
     # 检查是否已存在配置
+    # 、、创建的是会先查一下，如果存在就走更新逻辑，不存在就创建一个新的，并通过事务提交
     existing_profile = session.query(MCPProfileModel).first()
     if existing_profile:
         return update_mcp_profile(
@@ -358,6 +360,7 @@ def update_mcp_profile(
     """
     更新 MCP 通用配置
     """
+    # 、、全量更新， 先查，如果不存在就根据前端传来，创建一个新的
     profile = session.query(MCPProfileModel).first()
     if profile is not None:
         if timeout is not None:
@@ -385,6 +388,7 @@ def reset_mcp_profile(session):
     """
     重置 MCP 通用配置为默认值
     """
+    # 、、重置的逻辑是，先查数据库中有没有，没有就不做处理，返回False，有，就重置
     profile = session.query(MCPProfileModel).first()
     if profile is not None:
         profile.timeout = 30

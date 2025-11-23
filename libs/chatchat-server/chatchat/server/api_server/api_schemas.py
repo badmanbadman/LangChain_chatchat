@@ -245,7 +245,7 @@ class MCPConnectionStatusResponse(BaseModel):
     connection_id: Optional[str] = None
 
 
-class MCPProfileCreate(BaseModel):
+class MCPProfileCreate(BaseModel): # 跟新和创建用的是同一个Model
     """MCP 通用配置创建请求体"""
     timeout: int = Field(default=30, ge=10, le=300, description="默认连接超时时间（秒）")
     working_dir: str = Field(default="/tmp", description="默认工作目录")
@@ -254,10 +254,10 @@ class MCPProfileCreate(BaseModel):
 
 class MCPProfileResponse(BaseModel):
     """MCP 通用配置响应体"""
-    timeout: int
-    working_dir: str
-    env_vars: Dict[str, str]
-    update_time: str
+    timeout: int # 、、默认连接超时时间（秒）
+    working_dir: str #、、默认工作目录
+    env_vars: Dict[str, str] # 、、默认环境变量
+    update_time: str #、、更新时间
 
 
 class MCPProfileStatusResponse(BaseModel):
