@@ -112,13 +112,19 @@ def search_result2docs(search_results) -> List[Document]:
 def search_engine(query: str, top_k:int=0, engine_name: str="", config: dict={}):
     config = config or get_tool_config("search_internet")
     if top_k <= 0:
+        # 、、没有传top_k时，
         top_k = config.get("top_k", Settings.kb_settings.SEARCH_ENGINE_TOP_K)
+    # 、、搜索引擎名称
     engine_name = engine_name or config.get("search_engine_name")
+    # 、、创建获取搜索引擎
     search_engine_use = SEARCH_ENGINES[engine_name]
+    # 、、执行搜索，并发挥 top_k个
     results = search_engine_use(
         text=query, config=config["search_engine_config"][engine_name], top_k=top_k
     )
+    # 、、进行格式转化，并将格式转化过后的page_content进行前后空格删除
     docs = [x for x in search_result2docs(results) if x.page_content and x.page_content.strip()]
+    # 、、返回组装后的数据，
     return {"docs": docs, "search_engine": engine_name}
 
 

@@ -6,7 +6,7 @@ import streamlit_antd_components as sac #、、streamlit的一个扩展库 用�
 from chatchat import __version__ # 、、导入版本号
 from chatchat.server.utils import api_address # 、、导入获取后端api地址的函数
 from chatchat.webui_pages.dialogue.dialogue import  dialogue_page # 、、导入对话页面函数
-from chatchat.webui_pages.kb_chat import kb_chat # 、、导入知识库对话页面函数
+from chatchat.webui_pages.kb_chat import kb_chat # 、、导入知识库RAG对话页面函数
 from chatchat.webui_pages.mcp import mcp_management_page# 、、导入mcp管理页面函数
 from chatchat.webui_pages.knowledge_base.knowledge_base import knowledge_base_page# 、、导入知识库管理页面函数
 from chatchat.webui_pages.utils import * # 、、导入webui页面的工具函数

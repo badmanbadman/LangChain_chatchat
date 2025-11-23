@@ -32,6 +32,7 @@ from chatchat.server.utils import (
     get_default_embedding,
 )
 from chatchat.utils import build_logger
+from langchain_core.vectorstores import VectorStore
 
 logger = build_logger()
 
@@ -41,16 +42,19 @@ def search_temp_docs(knowledge_id: str = Body(..., description="知识库 ID", e
                      top_k: int = Body(..., description="返回的文档数量", examples=[5]),
                      score_threshold: float = Body(..., description="分数阈值", examples=[0.8])) -> List[Dict]:
     '''从临时 FAISS 知识库中检索文档，用于文件对话'''
+    vs: VectorStore
     with memo_faiss_pool.acquire(knowledge_id) as vs:
+        # similarity_search_with_score VectorStore中的抽象方法，所有基于langchain的标准向量库都应该实现这个方法
         docs = vs.similarity_search_with_score(
             query, k=top_k, score_threshold=score_threshold
         )
+        # 、、转为字典形式返回
         docs = [x[0].dict() for x in docs]
         return docs
 
 
 def search_docs(
-        query: str = Body("", description="用户输入", examples=["你好"]),
+        query: str = Body("", description="用户输入", examples=["你好"]), # 纯粹用户输入
         knowledge_base_name: str = Body(
             ..., description="知识库名称", examples=["samples"]
         ),
@@ -66,18 +70,27 @@ def search_docs(
         file_name: str = Body("", description="文件名称，支持 sql 通配符"),
         metadata: dict = Body({}, description="根据 metadata 进行过滤，仅支持一级键"),
 ) -> List[Dict]:
+    # 、、知识库实例
     kb = KBServiceFactory.get_service_by_name(knowledge_base_name)
     data = []
     if kb is not None:
         if query:
+            # 、、根据知识库进行搜索，返回一个List[Document],
             docs = kb.search_docs(query, top_k, score_threshold)
-            # data = [DocumentWithVSId(**x[0].dict(), score=x[1], id=x[0].metadata.get("id")) for x in docs]
+            # 、、**x.dict() 展开字典， **{"id": x.metadata.get('id'), **x.dict()} 给Document添加新字段（id），内部默认还添加了个score字段，
+            # 、、做这个的主要目的是  
+            #       1、数据标准化（）
+            #       2、字段提取，将分散在metadata种的ID提升为顶级字段
+            #       3、分数初始化：为所有文档提供统一的默认评分
             data = [DocumentWithVSId(**{"id": x.metadata.get("id"), **x.dict()}) for x in docs]
         elif file_name or metadata:
+            # 、、直接查关系型数据库
             data = kb.list_docs(file_name=file_name, metadata=metadata)
             for d in data:
+                # 检查metadata中是否包含向量 vector，如果包含就删除，然后返回
                 if "vector" in d.metadata:
                     del d.metadata["vector"]
+    # dict()方法会将模型的字段和值转换为字典。，将DocumentWithVSId转为字典
     return [x.dict() for x in data]
 
 

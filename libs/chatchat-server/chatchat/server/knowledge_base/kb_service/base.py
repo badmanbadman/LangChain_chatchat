@@ -229,6 +229,7 @@ class KBService(ABC):
         top_k: int = Settings.kb_settings.VECTOR_SEARCH_TOP_K,
         score_threshold: float = Settings.kb_settings.SCORE_THRESHOLD,
     ) -> List[Document]:
+        # 、、检查嵌入模型，不可用直接返回
         if not self.check_embed_model()[0]:
             return []
 

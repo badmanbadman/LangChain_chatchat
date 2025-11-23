@@ -28,7 +28,10 @@ def old_style_coroutine():
     yield from asyncio.sleep(1)
 # 语法糖 创建协程
 async def modern_coroutine(): #推荐方式（Python 3.5+）
-    await asyncio.sleep(1)
+    try:
+        await asyncio.sleep(1)
+    finally:
+        ...
 
 # 创建任务
 task1 = asyncio.create_task(modern_coroutine()) #python 3.7+ 版本

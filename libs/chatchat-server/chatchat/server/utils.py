@@ -161,6 +161,7 @@ def get_config_models(
     }}
     """
     result = {}
+    # 、、生成model_type
     if model_type is None:
         model_types = [
             "llm_models",
@@ -218,6 +219,7 @@ def get_model_info(
     获取配置的模型信息，主要是 api_base_url, api_key
     如果指定 multiple=True，则返回所有重名模型；否则仅返回第一个
     """
+    # 、、从配置文件里获取模型相关信息，
     result = get_config_models(model_name=model_name, platform_name=platform_name)
     if len(result) > 0:
         if multiple:
@@ -263,7 +265,9 @@ def get_ChatOpenAI(
         local_wrap: bool = False,  # use local wrapped api
         **kwargs: Any,
 ) -> ChatOpenAI:
+    # 、、获取模型信息
     model_info = get_model_info(model_name)
+    # 、、将参数转化为字典格式
     params = dict(
         streaming=streaming,
         verbose=verbose,
@@ -275,6 +279,7 @@ def get_ChatOpenAI(
     )
     # remove paramters with None value to avoid openai validation error
     for k in list(params):
+        # 、、删除掉字典中为None的属性
         if params[k] is None:
             params.pop(k)
 
@@ -290,6 +295,7 @@ def get_ChatOpenAI(
                 openai_api_key=model_info.get("api_key"),
                 openai_proxy=model_info.get("api_proxy"),
             )
+        # 使用LangChain的ChatOpenAI生成聊天模型实例
         model = ChatOpenAI(**params)
     except Exception as e:
         logger.exception(f"failed to create ChatOpenAI for model: {model_name}.")

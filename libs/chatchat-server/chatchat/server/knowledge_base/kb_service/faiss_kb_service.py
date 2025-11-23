@@ -76,13 +76,23 @@ class FaissKBService(KBService):
         top_k: int,
         score_threshold: float = Settings.kb_settings.SCORE_THRESHOLD,
     ) -> List[Tuple[Document, float]]:
+        # 、、 向量库查询
+        # acquire() 用于安全的地获取向量库实例
+        # 主要耗时在检索阶段，acquire（）本身一般很快
         with self.load_vector_store().acquire() as vs:
+            # 创建混合检索器，执行向量检索
+
             retriever = get_Retriever("ensemble").from_vectorstore(
-                vs,
-                top_k=top_k,
+                vs, # 向量库
+                top_k=top_k, # 返回结果数量
                 score_threshold=score_threshold,
-            )
+            ) 
+            # 获取检索出来的documnets,这里是主要的耗时操作
             docs = retriever.get_relevant_documents(query)
+        # 如果是多个请求同时等待同一个向量库的连接，由于虽然创建了不同的知识库实例，
+        # 但是他们的连接池指向的都是同一个连接池的缓存，而每次进行self.load_vector_store().acquire()都会让其他的请求等待，
+        # 这里可能会造成性能问题(但是是事实我进行了缓存,如果多个请求过来,应该也是响当当的快).
+        # 所以性能还是在获取检索结果上
         return docs
 
     def do_add_doc(

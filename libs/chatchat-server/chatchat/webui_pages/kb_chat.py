@@ -21,28 +21,30 @@ chat_box = ChatBox(assistant_avatar=get_img_base64("chatchat_icon_blue_square_v2
 
 
 def init_widgets():
-    st.session_state.setdefault("history_len", Settings.model_settings.HISTORY_LEN)
-    st.session_state.setdefault("selected_kb", Settings.kb_settings.DEFAULT_KNOWLEDGE_BASE)
-    st.session_state.setdefault("kb_top_k", Settings.kb_settings.VECTOR_SEARCH_TOP_K)
-    st.session_state.setdefault("se_top_k", Settings.kb_settings.SEARCH_ENGINE_TOP_K)
-    st.session_state.setdefault("score_threshold", Settings.kb_settings.SCORE_THRESHOLD)
-    st.session_state.setdefault("search_engine", Settings.kb_settings.DEFAULT_SEARCH_ENGINE)
-    st.session_state.setdefault("return_direct", False)
-    st.session_state.setdefault("cur_conv_name", chat_box.cur_chat_name)
-    st.session_state.setdefault("last_conv_name", chat_box.cur_chat_name)
-    st.session_state.setdefault("file_chat_id", None)
+    st.session_state.setdefault("history_len", Settings.model_settings.HISTORY_LEN) #历史对话的轮次
+    st.session_state.setdefault("selected_kb", Settings.kb_settings.DEFAULT_KNOWLEDGE_BASE)#当前选中的知识库
+    st.session_state.setdefault("kb_top_k", Settings.kb_settings.VECTOR_SEARCH_TOP_K) #取从知识库中筛选处理的前 k 个
+    st.session_state.setdefault("se_top_k", Settings.kb_settings.SEARCH_ENGINE_TOP_K) #搜索引擎匹配结题数量
+    st.session_state.setdefault("score_threshold", Settings.kb_settings.SCORE_THRESHOLD) #知识库相关度匹配阈值
+    st.session_state.setdefault("search_engine", Settings.kb_settings.DEFAULT_SEARCH_ENGINE) # 搜索引擎设置(默认为duckduckgo:'比较注重隐私保护的搜索引擎')
+    st.session_state.setdefault("return_direct", False)# 是否直接返回检索结果
+    st.session_state.setdefault("cur_conv_name", chat_box.cur_chat_name) # 当前会话名称 (init默认名称 'defalut')
+    st.session_state.setdefault("last_conv_name", chat_box.cur_chat_name) # 上一次会话名称(init默认名称 'defalut')
+    st.session_state.setdefault("file_chat_id", None) # 文件对话的临时知 识库ID
 
 
 def kb_chat(api: ApiRequest):
+    # 、、context是chat_box这个类上的一个属性，包含了当前会话的上下文信息（是个字典）
     ctx = chat_box.context
-    ctx.setdefault("uid", uuid.uuid4().hex)
-    ctx.setdefault("file_chat_id", None)
-    ctx.setdefault("llm_model", get_default_llm())
-    ctx.setdefault("temperature", Settings.model_settings.TEMPERATURE)
+    ctx.setdefault("uid", uuid.uuid4().hex) # 会话唯一标识符
+    ctx.setdefault("file_chat_id", None) # 文件对话的临时知识库ID
+    ctx.setdefault("llm_model", get_default_llm())# 默认模型
+    ctx.setdefault("temperature", Settings.model_settings.TEMPERATURE) # 模型温度
     init_widgets()
 
     # sac on_change callbacks not working since st>=1.34
     if st.session_state.cur_conv_name != st.session_state.last_conv_name:
+        # 、、如果当前会话名称和上一次会话名称不一致，则保存上一次会话的状态，并恢复当前会话的状态
         save_session(st.session_state.last_conv_name)
         restore_session(st.session_state.cur_conv_name)
         st.session_state.last_conv_name = st.session_state.cur_conv_name
@@ -95,7 +97,7 @@ def kb_chat(api: ApiRequest):
                                          )
             placeholder = st.empty()
             st.divider()
-            # prompt_templates_kb_list = list(Settings.prompt_settings.rag)
+            # prompt    _templates_kb_list = list(Settings.prompt_settings.rag)
             # prompt_name = st.selectbox(
             #     "请选择Prompt模板：",
             #     prompt_templates_kb_list,
@@ -113,8 +115,10 @@ def kb_chat(api: ApiRequest):
             def on_kb_change():
                 st.toast(f"已加载知识库： {st.session_state.selected_kb}")
 
+            # 、、上面先谢了个placeholder容器，下面的组件会在这个容器中显示
             with placeholder.container():
                 if dialogue_mode == "知识库问答":
+                    # 获取知识库list
                     kb_list = [x["kb_name"] for x in api.list_knowledge_bases()]
                     selected_kb = st.selectbox(
                         "请选择知识库：",
@@ -123,6 +127,7 @@ def kb_chat(api: ApiRequest):
                         key="selected_kb",
                     )
                 elif dialogue_mode == "文件对话":
+                    #、、 st.file_uploader是streamlit的一个组件，用来创建一个文件上传框，files是上传来的文档
                     files = st.file_uploader("上传知识文件：",
                                             [i for ls in LOADER_DICT.values() for i in ls],
                                             accept_multiple_files=True,
@@ -171,15 +176,18 @@ def kb_chat(api: ApiRequest):
     # chat input
     with bottom():
         cols = st.columns([1, 0.2, 15,  1])
+        # 、、 :gear: 是一个图标，表示设置按钮
         if cols[0].button(":gear:", help="模型配置"):
             widget_keys = ["platform", "llm_model", "temperature", "system_message"]
             chat_box.context_to_session(include=widget_keys)
             llm_model_setting()
+            # 、、：wastebasket: 是一个图标，表示清空对话按钮
         if cols[-1].button(":wastebasket:", help="清空对话"):
             chat_box.reset_history()
             rerun()
         # with cols[1]:
         #     mic_audio = audio_recorder("", icon_size="2x", key="mic_audio")
+        # 、、prompt是用户输入的内容
         prompt = cols[2].chat_input(chat_input_placeholder, key="prompt")
     if prompt:
         history = get_messages_history(ctx.get("history_len", 0))
@@ -188,7 +196,7 @@ def kb_chat(api: ApiRequest):
 
         extra_body = dict(
             top_k=kb_top_k,
-            score_threshold=score_threshold,
+            score_threshold=score_threshold, #知识库相关度匹配阈值
             temperature=ctx.get("temperature"),
             prompt_name=prompt_name,
             return_direct=return_direct,
@@ -196,6 +204,8 @@ def kb_chat(api: ApiRequest):
     
         api_url = api_address(is_public=True)
         if dialogue_mode == "知识库问答":
+            # 、、这个路由 会调用到 后端的kb_routes.py中的kb_chat_endpoint 知识库聊天端点 
+            # 、、在那个端点中会进行路由解析，将local_kb和selected_kb解析出来
             client = openai.Client(base_url=f"{api_url}/knowledge_base/local_kb/{selected_kb}", api_key="NONE")
             chat_box.ai_say([
                 Markdown("...", in_expander=True, title="知识库匹配结果", state="running", expanded=return_direct),

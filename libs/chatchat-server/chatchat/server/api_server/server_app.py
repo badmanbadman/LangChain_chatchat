@@ -21,6 +21,7 @@ from chatchat.server.utils import MakeFastAPIOffline
 
 
 def create_app(run_mode: str = None):
+    # 、、这个文件是对所有后端api路由的整合
     app = FastAPI(title="Langchain-Chatchat API Server", version=__version__)
     MakeFastAPIOffline(app)
     # Add CORS middleware to allow all origins
@@ -39,7 +40,7 @@ def create_app(run_mode: str = None):
     async def document():
         return RedirectResponse(url="/docs")
 
-    app.include_router(chat_router)
+    app.include_router(chat_router) # 、、对话相关的路由
     app.include_router(kb_router) # 、、知识库相关的API路由
     app.include_router(tool_router)
     app.include_router(openai_router)

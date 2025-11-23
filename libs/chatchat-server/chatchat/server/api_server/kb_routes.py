@@ -32,6 +32,7 @@ from chatchat.server.knowledge_base.kb_cache.faiss_cache import memo_faiss_pool
 kb_router = APIRouter(prefix="/knowledge_base", tags=["Knowledge Base Management"])
 
 
+# 、、在这个端点会将前端使用的 非标准openai.Client (自定义了base_url)接口调用,从中接收到的mode和param参数解析出来，
 @kb_router.post(
     "/{mode}/{param}/chat/completions", summary="知识库对话，openai 兼容，参数与 /chat/kb_chat 一致"
 )
@@ -45,23 +46,26 @@ async def kb_chat_endpoint(
     # rich.print(body)
 
     if body.max_tokens in [None, 0]:
+        # 填充默认最大token数
         body.max_tokens = Settings.model_settings.MAX_TOKENS
 
+    # 、、获取前端传过来的额外参数
     extra = body.model_extra
+    # 、、组装参数，调用kb_chat，kb_chat中根据不同的mode进行不同类型的处理，（本地知识库，临时知识库，搜索引擎）
     ret = await kb_chat(
-        query=body.messages[-1]["content"],
-        mode=mode,
+        query=body.messages[-1]["content"], # 、、用户的最新输入，（最后一条数据）
+        mode=mode, #、、知识来源
         kb_name=param,
         top_k=extra.get("top_k", Settings.kb_settings.VECTOR_SEARCH_TOP_K),
-        score_threshold=extra.get("score_threshold", Settings.kb_settings.SCORE_THRESHOLD),
-        history=body.messages[:-1],
-        stream=body.stream,
-        model=body.model,
+        score_threshold=extra.get("score_threshold", Settings.kb_settings.SCORE_THRESHOLD),# 、、知识分数阈值
+        history=body.messages[:-1], # 、、历史对话记录（默认第一条到倒数第二条）
+        stream=body.stream, # 、、是否流式输出，默认为False，需要前端调用openaiClient的时候显示的指的为True才会流式输出
+        model=body.model, #、、使用的模型名称
         temperature=body.temperature,
         max_tokens=body.max_tokens,
         prompt_name=extra.get("prompt_name", "default"),
         return_direct=extra.get("return_direct", False),
-        request=request,
+        request=request, # 对象包含了完整的 HTTP 请求信息，可以用于进行身份授权和限流，日志等，虽然kb_chat中暂时没用到
     )
     return ret
 

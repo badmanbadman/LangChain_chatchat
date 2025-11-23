@@ -19,6 +19,10 @@ class History(BaseModel):
     也可转换为tuple，如
     h.to_msy_tuple = ("human", "你好")
     """
+    """
+    、、用于标准化存储和处理对话中的消息，存储就是实例化一个History，实例化的时候传role和content进来
+       处理对话数据就是使用to_msg_template和to_msg_tuple，
+    """
 
     role: str = Field(...)
     content: str = Field(...)
@@ -46,8 +50,10 @@ class History(BaseModel):
     @classmethod
     def from_data(cls, h: Union[List, Tuple, Dict]) -> "History":
         if isinstance(h, (list, tuple)) and len(h) >= 2:
+            # 、、如果是一个元组，元组的第一个元素是list，第二个元素是个元组，
             h = cls(role=h[0], content=h[1])
         elif isinstance(h, dict):
+            # 、、如果传入的是一个字典（本项目目前传过来的就是字典）
             h = cls(**h)
 
         return h

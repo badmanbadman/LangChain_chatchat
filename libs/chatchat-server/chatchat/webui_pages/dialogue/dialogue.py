@@ -29,6 +29,8 @@ chat_box = ChatBox(assistant_avatar=get_img_base64("chatchat_icon_blue_square_v2
 
 def save_session(conv_name: str = None):
     """save session state to chat context"""
+    # 、、这个方法会将session中的一些状态保存到chat_box的context中，这些状态就是传进去的exclude列表中不包含的状态
+    # 、、conv_name是会话名称，如果传入了会话名称，则保存到对应的会话中
     chat_box.context_from_session(
         conv_name, exclude=["selected_page", "prompt", "cur_conv_name", "upload_image"]
     )
@@ -36,6 +38,7 @@ def save_session(conv_name: str = None):
 
 def restore_session(conv_name: str = None):
     """restore sesstion state from chat context"""
+    # 、、context_to_session方法会将chat_box的context中的状态恢复到session中
     chat_box.context_to_session(
         conv_name, exclude=["selected_page", "prompt", "cur_conv_name", "upload_image"]
     )
