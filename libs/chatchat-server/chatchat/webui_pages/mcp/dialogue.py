@@ -433,8 +433,10 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
         # 加载MCP连接数据
         if not st.session_state.mcp_connections_loaded:
             try:
+                # 、、调接口获取所有连接器，启用的和未启用的都获取
                 connections_data = api.get_all_mcp_connections()
                 if connections_data:
+                    # 、、根据后端查询结果 将连接器缓存进前端session中
                     st.session_state.mcp_connections = connections_data.get("connections", [])
                     st.session_state.mcp_connections_loaded = True
                 else:
@@ -446,7 +448,7 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
         # 已启用连接器部分
         st.markdown('<h2 class="section-title">已启用连接器</h2>', unsafe_allow_html=True)
         
-        # 显示已启用的连接器
+        # 显示已启用的连接器（将后端的数据过滤）
         enabled_connections = [conn for conn in st.session_state.mcp_connections if conn.get("enabled", False)]
         
         if enabled_connections:
@@ -489,6 +491,7 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
                     
                     with col2:
                         if st.button("🔄 禁用", key=f"toggle_disable_{connection.get('id', i)}", use_container_width=True):
+                            # 、、禁用
                             toggle_connection_status(api, connection.get('id', i), False)
         else:
             st.info("暂无已启用的连接器")
@@ -552,7 +555,7 @@ def mcp_management_page(api: ApiRequest, is_lite: bool = False):
         st.markdown("""
         ### 连接器管理
         
-        **已启用连接器**：显示当前已配置并启用的连接器，支持直接点击进入详细设置。
+        **已启用连接器**：显示当前已配置并启用的连接器。
         
         **浏览连接器**：展示可用的连接器类型，点击可快速添加和配置。
         

@@ -264,10 +264,12 @@ async def list_mcp_connections(
     logger.info(f"获取 MCP 连接列表, enabled_only={enabled_only}")
     try:
         if enabled_only:
+            # 、、只返回启用的
             connections = get_enabled_mcp_connections()
         else:
+            # 、、全部都返回
             connections = get_all_mcp_connections()
-        
+        # 格式化并返回
         response_connections = [MCPConnectionResponse(
             id=conn["id"],
             server_name=conn["server_name"],
@@ -328,7 +330,7 @@ async def update_mcp_connection_by_id(
     """
     logger.info(f"更新 MCP 连接: {connection_id}")
     try:
-        # 检查连接是否存在
+        # 检查连接是否存在 、、existing返回的是个字典
         existing = get_mcp_connection_by_id(connection_id)
         if not existing:
             logger.error(f"连接 ID '{connection_id}' 不存在")

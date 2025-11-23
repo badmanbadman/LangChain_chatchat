@@ -23,6 +23,7 @@ def add_mcp_connection(
     新增 MCP 连接配置
     """
     if not connection_id:
+        # 、、没有主键就要生成一个
         connection_id = uuid.uuid4().hex
     
     if args is None:
@@ -66,6 +67,7 @@ def update_mcp_connection(
     """
     更新 MCP 连接配置
     """
+    # 、、还是要优先查一下确保，然后将传进来的值更新数据库
     mcp_connection = session.query(MCPConnectionModel).filter_by(id=connection_id).first()
 
     if mcp_connection is not None:
@@ -99,8 +101,10 @@ def get_mcp_connection_by_id(session, connection_id: str) -> Optional[dict]:
     """
     根据 ID 查询 MCP 连接配置
     """
+    # 、、查库根据connection_id来查库
     mcp_connection = session.query(MCPConnectionModel).filter_by(id=connection_id).first()
     if mcp_connection:
+        # 如果查得到就格式化返回
         return {
             "id": mcp_connection.id,
             "server_name": mcp_connection.server_name,
@@ -152,11 +156,13 @@ def get_all_mcp_connections(session, enabled_only: bool = False) -> List[dict]:
     """
     获取所有 MCP 连接配置
     """
+    # 、、查库 mcp_connection 如果
     query = session.query(MCPConnectionModel)
     if enabled_only:
         query = query.filter_by(enabled=True)
-    
+    # 、、按创建时间 降序排序
     connections = query.order_by(MCPConnectionModel.create_time.desc()).all()
+    # 、、格式化返回
     return [
         {
             "id": conn.id,
