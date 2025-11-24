@@ -1015,9 +1015,34 @@ def update_search_local_knowledgebase_tool():
 
 def get_tool(name: str = None) -> Union[BaseTool, Dict[str, BaseTool]]:
     import importlib
+    """控制导入方式
+    主要功能：
+        1、动态导入模块： 可以在运行时，根据字符串名称导入模块，而不是使用固定的import语句
+        2、重新加载模块，可以重新加载一个已经导入的模块，
+        3、检查模块规格： 可以获取模块的规格信息，如名称，加载器，来源等
+        4、自定义导入器：允许开发实现自己的导入机制
+    常见的函数和类：
+        importlib.import_module(name, package=None): 根据字符串导入模块
+        importlib.reload(module): 重新加载一个已经导入的模块，
+        importlib.util模块提供了一些工具函数，例如检查模块规格，创建模块对象等
+    """
 
     from chatchat.server.agent import tools_factory
+    # 、、当tools_factory被加载的时候就会将使用装饰器regist_tool修饰的工具全都注册到注册表里面去
+    """注册时机
+    # 假设这是你的 tools.py 文件
 
+    @regist_tool(title="天气查询")
+    def weather_check(city: str):
+        return f"{city}的天气是晴天"
+
+    @regist_tool(title="文档搜索")  
+    def search_documents(query: str):
+        return ["文档1", "文档2"]
+
+    # 当 import tools 时，这些装饰器立即执行，工具立即注册！
+    """
+    # 、、重新加载已经导入的模块 tools_factory
     importlib.reload(tools_factory)
 
     from chatchat.server.agent.tools_factory import tools_registry

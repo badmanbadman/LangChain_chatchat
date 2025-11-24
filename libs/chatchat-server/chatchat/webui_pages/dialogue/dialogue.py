@@ -172,6 +172,7 @@ def dialogue_page(
 
     @st.experimental_dialog("模型配置", width="large")
     def llm_model_setting():
+        # 、、没有启用这个功能暂时
         # 模型
         cols = st.columns(3)
         platforms = ["所有"] + list(get_config_platforms())
