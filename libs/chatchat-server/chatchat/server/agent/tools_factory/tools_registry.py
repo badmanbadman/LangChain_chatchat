@@ -28,7 +28,9 @@ from langchain_core.tools import BaseTool
 from chatchat.server.knowledge_base.kb_doc_api import DocumentWithVSId
 # 、、BaseModel和Extra,来自Pydantic，用于数据验证和设置
 from chatchat.server.pydantic_v1 import BaseModel, Extra
-
+from langchain_chatchat.agent_toolkits.all_tools.tool import (
+    BaseToolOutput,
+)
 __all__ = ["regist_tool", "BaseToolOutput", "format_context"]
 
 

@@ -94,6 +94,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# 、、聊天格式转化 字典转化为 LangChain格式
 def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
     """Convert a dictionary to a LangChain message.
 
@@ -132,7 +133,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
     else:
         return ChatMessage(content=_dict.get("content", ""), role=role)
 
-
+# 、、将 LangChain 消息对象转换为 API 请求的字典格式
 def _convert_message_to_dict(message: BaseMessage) -> dict:
     """Convert a LangChain message to a dictionary.
 
@@ -460,6 +461,7 @@ class ChatPlatformAI(BaseChatModel):
             combined["system_fingerprint"] = system_fingerprint
         return combined
 
+    # 、、同步流式处理
     def stream(
             self,
             input: LanguageModelInput,

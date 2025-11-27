@@ -16,6 +16,7 @@ tool_router = APIRouter(prefix="/tools", tags=["Toolkits"])
 
 @tool_router.get("", response_model=BaseResponse)
 async def list_tools():
+    # 获取工具list 实例
     tools = get_tool()
     data = {
         t.name: {
@@ -23,7 +24,7 @@ async def list_tools():
             "title": t.title,
             "description": t.description,
             "args": t.args,
-            "config": get_tool_config(t.name),
+            "config": get_tool_config(t.name), #根据工具name,获取提取配置好的工具配置项
         }
         for t in tools.values()
     }

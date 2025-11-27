@@ -175,33 +175,43 @@ class PlatformToolsRunnable(RunnableSerializable[Dict, OutputType]):
     @classmethod
     def create_agent_executor(
             cls,
-            agent_type: str,
-            agents_registry: Callable,
-            llm: BaseLanguageModel,
+            agent_type: str, # 、、指定要创建智能体的类型
+            agents_registry: Callable,  #、、一个可调用对象，更具agent_type返回相应的智能体执行类
+            llm: BaseLanguageModel, #一个基础语言模型，必须是ChatPlatformAI类型
             *,
-            intermediate_steps: List[Tuple[AgentAction, BaseToolOutput]] = [],
-            history: List[Union[List, Tuple, Dict]] = [],
+            intermediate_steps: List[Tuple[AgentAction, BaseToolOutput]] = [],# 一个列表，包含之前智能体的动作和工具输出的元组，用于恢复智能体的状态
+            history: List[Union[List, Tuple, Dict]] = [],#对话历史，可以是列表，元组，或者字典
             tools: Sequence[
                 Union[Dict[str, Any], Type[BaseModel], Callable, BaseTool]
-            ] = None,
-            mcp_connections: dict[str, StdioConnection | SSEConnection] = None,
-            callbacks: List[BaseCallbackHandler] = None,
+            ] = None,#一个序列，包含工具的定义，可以是字典，Pydantic模型，可调用对象，BaseTool实例
+            mcp_connections: dict[str, StdioConnection | SSEConnection] = None,#一个字典，包含MCP连接，键为连接名，值为StdioConnection或者SSEConnetion实例
+            callbacks: List[BaseCallbackHandler] = None, # 回调处理器列表
             **kwargs: Any,
     ) -> "PlatformToolsRunnable":
-        """Create an ZhipuAI Assistant and instantiate the Runnable."""
+        """Create an ZhipuAI Assistant and instantiate the Runnable.
+        创建并返回一个PlatformToolsRunnable，它负责组装一个智能体执行器（agent_executor）,
+        这个执行器能够使用提供的工具和MCP（Model context Protocol）连接来执行任务
+        """
         if not isinstance(llm, ChatPlatformAI):
+            # 、、验证是否为ChatPlatformAI类型，如果不是则抛出异常
             raise ValueError
 
+        # 、、设置回调
         callback = AgentExecutorAsyncIteratorCallbackHandler()
+        # 、、将llm原有的回调以及传入的callback合并，形成最终的回调列表final_callbacks，然后将final_callbacks设置为llm
         final_callbacks = [callback] + llm.callbacks
         if callbacks:
             final_callbacks.extend(callbacks)
 
+        # 、、final_callbacks设置给llm
         llm.callbacks = final_callbacks
         llm_with_all_tools = None
 
         temp_tools = []
         if tools:
+            """ 处理工具
+            如果提供了tools,则将这些工具转换为助手工具,并且存储进llm_with_all_tools中
+            """
             llm_with_all_tools = [_get_assistants_tool(tool) for tool in tools]
 
             temp_tools.extend(

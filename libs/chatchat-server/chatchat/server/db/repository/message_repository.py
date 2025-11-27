@@ -20,6 +20,7 @@ def add_message_to_db(
     """
     if not message_id:
         message_id = uuid.uuid4().hex
+    #、、落库 
     m = MessageModel(
         id=message_id,
         chat_type=chat_type,

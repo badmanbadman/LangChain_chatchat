@@ -67,18 +67,59 @@ async def chat_completions(
         body.max_tokens = Settings.model_settings.MAX_TOKENS
 
     client = get_OpenAIClient(model_name=body.model, is_async=True)
+
+    """、、model_extra:
+    model_extra 的工作原理:
+        当 Pydantic 模型配置了 extra = "allow" 时：
+        标准字段：会被正常验证和解析
+        额外字段：会被收集到 model_extra 属性中
+    客户端请求示例：
+        {
+            "model": "gpt-4",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "stream": true,
+            "max_tokens": 1000,
+            "conversation_id": "conv_123",        // 额外字段
+            "tool_input": {"param": "value"},     // 额外字段
+            "use_mcp": false,                     // 额外字段
+            "chat_model_config": {"temperature": 0.7}  // 额外字段
+        }
+    后端解析结果：
+        # 标准字段被正常解析
+        body.model = "gpt-4"
+        body.messages = [{"role": "user", "content": "Hello"}]
+        body.stream = True
+        body.max_tokens = 1000
+
+        # 额外字段进入 model_extra
+        body.model_extra = {
+            "conversation_id": "conv_123",
+            "tool_input": {"param": "value"},
+            "use_mcp": false,
+            "chat_model_config": {"temperature": 0.7}
+        }
+    """
+    # 提取所有额外参数
     extra = {**body.model_extra} or {}
-    for key in list(extra):
-        delattr(body, key)
+    for key in list(extra): # 从 body 中删除这些额外属性，避免干扰后续处理
+        delattr(body, key) # 删除 body.conversation_id, body.tool_input 等
+
+    # 现在 body 只包含标准的 OpenAI 参数
+    # extra 包含所有自定义参数
 
     # check tools & tool_choice in request body
     if isinstance(body.tool_choice, str):
+        # 、、如果传入的tool_choice是工具名称（字符串），则通过工具名称获取到工具实例
         if t := get_tool(body.tool_choice):
+            # 、、根据工具实例再次组装数据，转换为标准格式
             body.tool_choice = {"function": {"name": t.name}, "type": "function"}
     if isinstance(body.tools, list):
+        # 、、如果传入的是tools的List（是个名称组成的List）
         for i in range(len(body.tools)):
             if isinstance(body.tools[i], str):
+                # 、、根据名称获取工具实例
                 if t := get_tool(body.tools[i]):
+                    # 、、组装数据，组装的数据格式和上面组装tool_choice一样
                     body.tools[i] = {
                         "type": "function",
                         "function": {
@@ -88,13 +129,15 @@ async def chat_completions(
                         },
                     }
 
+    # 、、会话ID，前端传来的
     conversation_id = extra.get("conversation_id")
   
     try:
+        # 、、聊天消息储存到数据库
         message_id = (
             add_message_to_db(
                 chat_type="agent_chat",
-                query=body.messages[-1]["content"],
+                query=body.messages[-1]["content"], # 最新的用户发来的消息
                 conversation_id=conversation_id,
             )
             if conversation_id
@@ -107,19 +150,21 @@ async def chat_completions(
     chat_model_config = {}  # TODO: 前端支持配置模型
     tool_config = {}
     if body.tools:
+        # 、、将tool的name字段捞出来
         tool_names = [x["function"]["name"] for x in body.tools]
+        # 、、根据工具名称，获取配置工具信息
         tool_config = {name: get_tool_config(name) for name in tool_names}
 
     result = await chat(
-        query=body.messages[-1]["content"],
-        metadata=extra.get("metadata", {}),
-        conversation_id=extra.get("conversation_id", ""),
-        message_id=message_id,
-        history_len=-1,
-        stream=body.stream,
-        chat_model_config=extra.get("chat_model_config", chat_model_config),
-        tool_config=tool_config,
-        use_mcp=extra.get("use_mcp", False),
-        max_tokens=body.max_tokens,
+        query=body.messages[-1]["content"], # 用户查询
+        metadata=extra.get("metadata", {}), #元数据
+        conversation_id=extra.get("conversation_id", ""), #会话ID
+        message_id=message_id,#消息Id
+        history_len=-1, #使用所有历史
+        stream=body.stream, #流式输出
+        chat_model_config=extra.get("chat_model_config", chat_model_config), #聊天模型配置
+        tool_config=tool_config, #工具配置
+        use_mcp=extra.get("use_mcp", False), #mac开关
+        max_tokens=body.max_tokens, #token限制
     )
     return result

@@ -27,6 +27,7 @@ class OpenAIBaseInput(BaseModel):
     extra_json: Optional[Dict] = Field(None, alias="extra_body")
     timeout: Optional[float] = None
 
+    # 、、允许额外字段，配置了这个后，属于OpenAI的标准字段会被正常验证和解析，额外字段会被收集到model_extra属性中
     class Config:
         extra = "allow"
 

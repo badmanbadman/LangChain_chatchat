@@ -313,6 +313,7 @@ def get_ChatPlatformAIParams(
         local_wrap: bool = False,  # use local wrapped api
         **kwargs: Any,
 ) -> Dict:
+    """、、将模型温度等信息，与api_key,api_base_url等进行组装"""
     model_info = get_model_info(model_name)
     if not model_info:
         raise ValueError(f"cannot find model info for model: {model_name}")
@@ -995,19 +996,25 @@ def update_search_local_knowledgebase_tool():
     from chatchat.server.agent.tools_factory import tools_registry
     from chatchat.server.db.repository.knowledge_base_repository import list_kbs_from_db
 
+    # 、、先查以下本地知识库所有知识库list
     kbs = list_kbs_from_db()
+    # 、、根据知识库描述和知识库名字来组装提示词
     template = "Use local knowledgebase from one or more of these:\n{KB_info}\n to get information，Only local data on this knowledge use this tool. The 'database' should be one of the above [{key}]."
     KB_info_str = "\n".join([f"{kb.kb_name}: {kb.kb_info}" for kb in kbs])
     KB_name_info_str = "\n".join([f"{kb.kb_name}" for kb in kbs])
+    #  提示词
     template_knowledge = template.format(KB_info=KB_info_str, key=KB_name_info_str)
 
+    # 从注册表获取本地知识库工具的实例
     search_local_knowledgebase_tool = tools_registry._TOOLS_REGISTRY.get(
         "search_local_knowledgebase"
     )
     if search_local_knowledgebase_tool:
+        # 将知识库描述更新
         search_local_knowledgebase_tool.description = " ".join(
             re.split(r"\n+\s*", template_knowledge)
         )
+        # 更新知识库工具中的database属性中的choices属性
         search_local_knowledgebase_tool.args["database"]["choices"] = [
             kb.kb_name for kb in kbs
         ]
@@ -1048,9 +1055,12 @@ def get_tool(name: str = None) -> Union[BaseTool, Dict[str, BaseTool]]:
     from chatchat.server.agent.tools_factory import tools_registry
 
     update_search_local_knowledgebase_tool()
+    # 返回注册表中的工具
     if name is None:
+        # 如果没有传名字,就全部返回
         return tools_registry._TOOLS_REGISTRY
     else:
+        # 如果是一个单独的工具名字,就返回一个,
         return tools_registry._TOOLS_REGISTRY.get(name)
 
 
@@ -1058,8 +1068,10 @@ def get_tool_config(name: str = None) -> Dict:
     from chatchat.settings import Settings
 
     if name is None:
+        # 、、如果没有传名字就转换位字典后返回全部
         return Settings.tool_settings.model_dump()
     else:
+        # 、、如果有传名字就转换位字典后返回该名字下的配置，默认位{}
         return Settings.tool_settings.model_dump().get(name, {})
 
 

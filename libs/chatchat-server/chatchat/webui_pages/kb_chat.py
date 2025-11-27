@@ -232,6 +232,7 @@ def kb_chat(api: ApiRequest):
         first = True
 
         try:
+            # 、、调接口
             for d in client.chat.completions.create(messages=messages, model=llm_model, stream=True, extra_body=extra_body):
                 if first:
                     chat_box.update_msg("\n\n".join(d.docs), element_index=0, streaming=False, state="complete")

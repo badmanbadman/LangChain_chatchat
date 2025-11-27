@@ -60,6 +60,7 @@ def get_messages_history(
     content_in_expander控制是否返回expander元素中的内容，一般导出的时候可以选上，传入LLM的history不需要
     """
 
+    # 、、从chat_box中去获取历史消息，并根据长度过滤，组装为自己需要的格式
     def filter(msg):
         content = [
             x for x in msg["elements"] if x._output_method in ["markdown", "text"]
@@ -91,7 +92,13 @@ def upload_temp_docs(files, _api: ApiRequest) -> str:
 
 @st.cache_data
 def upload_image_file(file_name: str, content: bytes) -> dict:
-    '''upload image for vision model using openai sdk'''
+    '''OpenAI客户端会将这个调用转换位HTTP请求：
+            方法： POST
+            URL:{api_address()}/v1/files
+            Content-Type: multipart/form-data
+            Body: 包含文件数据和purpose参数
+
+    '''
     client = openai.Client(base_url=f"{api_address()}/v1", api_key="NONE")
     return client.files.create(file=(file_name, content), purpose="assistants").to_dict()
 
@@ -153,6 +160,7 @@ def dialogue_page(
     api: ApiRequest,
 ):
     ctx = chat_box.context
+    # 、、这个是会话id，聊天的时候会传输到后端去的，（映射为conversation_id）
     ctx.setdefault("uid", uuid.uuid4().hex)
     ctx.setdefault("file_chat_id", None)
     ctx.setdefault("llm_model", get_default_llm())
@@ -211,22 +219,23 @@ def dialogue_page(
             )
 
             # 选择工具
+            # 、、后端返回一个List
             tools = list_tools(api)
             tool_names = ["None"] + list(tools)
             if use_agent:
                 use_mcp = st.checkbox("使用MCP", key="use_mcp")
-                # selected_tools = sac.checkbox(list(tools), format_func=lambda x: tools[x]["title"], label="选择工具",
-                # check_all=True, key="selected_tools")
+             
                 selected_tools = st.multiselect(
-                    "选择工具",
-                    list(tools),
-                    format_func=lambda x: tools[x]["title"],
-                    key="selected_tools",
+                    "选择工具", # 、、标签label
+                    list(tools), #list选项
+                    format_func=lambda x: tools[x]["title"], #用于将每个选项值转化位展示在界面上的字符串
+                    key="selected_tools", # 组件唯一标识符
                 )
             else:
                 # selected_tool = sac.buttons(list(tools), format_func=lambda x: tools[x]["title"], label="选择工具",
-             
+                use_mcp = False
                 selected_tools = []
+            # 、、将选择的工具的配置组装成一个字段，k是 工具名，value是 工具配置
             selected_tool_configs = {
                 name: tool["config"]
                 for name, tool in tools.items()
@@ -238,6 +247,7 @@ def dialogue_page(
             # 当不启用Agent时，手动生成工具参数
             # TODO: 需要更精细的控制控件
             tool_input = {}
+            # 、、目前 没有选agent是不会让选择工具的，
             if not use_agent and len(selected_tools) == 1:
                 with st.expander("工具参数", True):
                     for k, v in tools[selected_tools[0]]["args"].items():
@@ -263,7 +273,7 @@ def dialogue_page(
 
             # 用于图片对话、文生图的图片
             upload_image = None
-            def on_upload_file_change():
+            def  on_upload_file_change():
                 if f := st.session_state.get("upload_image"):
                     name = ".".join(f.name.split(".")[:-1]) + ".png"
                     st.session_state["cur_image"] = (name, PILImage.open(f))
@@ -334,7 +344,7 @@ def dialogue_page(
     # }
 
     # TODO: 这里的内容有点奇怪，从后端导入Settings.model_settings.LLM_MODEL_CONFIG，然后又从前端传到后端。需要优化
-    #  传入后端的内容
+    #  传入后端的内容 （、、这个现象在其他前端页面也有）
     llm_model_config = Settings.model_settings.LLM_MODEL_CONFIG
     chat_model_config = {key: {} for key in llm_model_config.keys()}
     for key in llm_model_config:
@@ -367,12 +377,15 @@ def dialogue_page(
             .get("history_len", 1)
         )
 
+        # 、、判断有没有上传图片，并且没有选择工具
         is_vision_chat = upload_image and not selected_tools
 
-        if is_vision_chat: # multimodal chat
+        if is_vision_chat: # 、、多模态对话
+            # 、、传入一个图片地址和Markdown格式的用户输入（upload_image这个对象中会带有后端返回的拼接好的图片地址id，，因为图片是暂存在后端的所有没有将地址写入到数据库，直接拼接好后返回给前端了）
             chat_box.user_say([Image(get_image_file_url(upload_image), width=100), Markdown(prompt)])
         else:
             chat_box.user_say(prompt)
+        # 、、下面这个if中逻辑应该是都走不到了，files_upload c初始化默认为 None ，并且后续没有赋值的地方
         if files_upload:
             if files_upload["images"]:
                 st.markdown(
@@ -394,15 +407,18 @@ def dialogue_page(
         text = ""
         started = False
 
+        # 、、 创建聊天的openai客户端，方便后面创建聊天连接（调接口）
         client = openai.Client(base_url=f"{api_address()}/chat", api_key="NONE", timeout=100000)
-        if is_vision_chat: # multimodal chat
+        if is_vision_chat: # 、、上传图片后聊天
             content = [
                 {"type": "text", "text": prompt},
                 {"type": "image_url", "image_url": {"url": get_image_file_url(upload_image)}}
             ]
+            # 、、图片聊天的messages数据组装
             messages = [{"role": "user", "content": content}]
         else:
             messages = history + [{"role": "user", "content": prompt}]
+        # 获取选中的工具 
         tools = list(selected_tool_configs)
         if len(selected_tools) == 1:
             tool_choice = selected_tools[0]
@@ -412,7 +428,7 @@ def dialogue_page(
         for k in tool_input:
             if tool_input[k] in [None, ""]:
                 tool_input[k] = prompt
-
+        # 、、入参统一组装
         extra_body = dict(
             metadata=files_upload,
             chat_model_config=chat_model_config,
@@ -437,6 +453,7 @@ def dialogue_page(
 
         if stream:
             try:
+                # 、、入参组装完成，创建会话连接
                 for d in client.chat.completions.create(**params):
                     # import rich
                     # rich.print(d)
