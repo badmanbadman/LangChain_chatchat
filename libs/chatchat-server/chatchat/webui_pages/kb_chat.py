@@ -94,6 +94,7 @@ def kb_chat(api: ApiRequest):
                               ]
             dialogue_mode = st.selectbox("请选择对话模式：",
                                          dialogue_modes,
+                                         index=3,
                                          key="dialogue_mode",
                                          )
             placeholder = st.empty()
