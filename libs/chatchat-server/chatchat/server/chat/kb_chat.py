@@ -29,8 +29,8 @@ logger = build_logger()
 
 async def kb_chat(
                 query: str = Body(..., description="用户输入", examples=["你好"]),
-                mode: Literal["local_kb", "temp_kb", "search_engine"] = Body("local_kb", description="知识来源"),
-                kb_name: str = Body("", description="mode=local_kb时为知识库名称；temp_kb时为临时知识库ID，search_engine时为搜索引擎名称", examples=["samples"]),
+                mode: Literal["local_kb", "temp_kb", "search_engine","local"] = Body("local_kb", description="知识来源"),
+                kb_name: str = Body("", description="mode=local_kb时为知识库名称；temp_kb时为临时知识库ID，search_engine时为搜索引擎名称, local时直接与大模型对话", examples=["samples"]),
                 top_k: int = Body(Settings.kb_settings.VECTOR_SEARCH_TOP_K, description="匹配向量数"),
                 score_threshold: float = Body(
                     Settings.kb_settings.SCORE_THRESHOLD,
@@ -61,6 +61,77 @@ async def kb_chat(
                 return_direct: bool = Body(False, description="直接返回检索结果，不送入 LLM"),
                 request: Request = None,
                 ):
+    async def chat_local() -> AsyncIterable[str]:
+        try:
+            nonlocal history, prompt_name, max_tokens
+
+            history = [History.from_data(h) for h in history]
+
+            callback = AsyncIteratorCallbackHandler()
+            callbacks = [callback]
+            # 、、获取最大tokens长度，优先用传过来的值，
+            if max_tokens in [None, 0]:
+                max_tokens = Settings.model_settings.MAX_TOKENS
+
+            # 获取聊天模型实例
+            llm = get_ChatOpenAI(
+                model_name=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                callbacks=callbacks,
+            )
+
+            # llm_model 提示词模板 
+            prompt_template = get_prompt_template("llm_model", prompt_name)
+            # 1. 将当前用户输入转换为消息模板
+            input_msg = History(role="user", content=prompt_template).to_msg_template(False)
+            # 2. 构建完整的聊天提示模板
+            chat_prompt = ChatPromptTemplate.from_messages(
+                [i.to_msg_template() for i in history] + [input_msg]) # 历史消息 + 当前输入
+
+            chain = chat_prompt | llm
+            # Begin a task that runs in the background.
+            task = asyncio.create_task(
+                wrap_done(
+                    chain.ainvoke({"history": history, "input": query}),
+                    callback.done
+                ),
+            )
+            # 、、如果是流式输出 True
+            if stream:
+                async for token in callback.aiter():
+                    ret = OpenAIChatOutput(
+                        id=f"chat{uuid.uuid4()}",
+                        object="chat.completion.chunk",
+                        content=token,
+                        role="assistant",
+                        model=model,
+                    )
+                    yield ret.model_dump_json()
+            else:
+                # 非流式的直接等callback.aiter执行完毕,全部添加到answer上,
+                # 然后转化为json格式一把返回
+                answer = ""
+                async for token in callback.aiter():
+                    answer += token
+                ret = OpenAIChatOutput(
+                    id=f"chat{uuid.uuid4()}",
+                    object="chat.completion",
+                    content=answer,
+                    role="assistant",
+                    model=model,
+                )
+                yield ret.model_dump_json()
+            await task
+        except asyncio.exceptions.CancelledError:
+            logger.warning("streaming progress has been interrupted by user.")
+            return
+        except Exception as e:
+            logger.error(f"error in knowledge chat: {e}")
+            yield {"data": json.dumps({"error": str(e)})}
+            return
+    if mode == 'local':
+        return EventSourceResponse(chat_local())
     if mode == "local_kb":
         kb = KBServiceFactory.get_service_by_name(kb_name)
         # 、、没找到知识库直接报404

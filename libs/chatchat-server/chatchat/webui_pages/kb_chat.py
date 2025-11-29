@@ -34,7 +34,7 @@ def init_widgets():
 
 
 def kb_chat(api: ApiRequest):
-    # 、、context是chat_box这个类上的一个属性，包含了当前会话的上下文信息（是个字典）
+    # context是chat_box这个类上的一个属性，包含了当前会话的上下文信息（是个字典）
     ctx = chat_box.context
     ctx.setdefault("uid", uuid.uuid4().hex) # 会话唯一标识符
     ctx.setdefault("file_chat_id", None) # 文件对话的临时知识库ID
@@ -44,7 +44,7 @@ def kb_chat(api: ApiRequest):
 
     # sac on_change callbacks not working since st>=1.34
     if st.session_state.cur_conv_name != st.session_state.last_conv_name:
-        # 、、如果当前会话名称和上一次会话名称不一致，则保存上一次会话的状态，并恢复当前会话的状态
+        # 如果当前会话名称和上一次会话名称不一致，则保存上一次会话的状态，并恢复当前会话的状态
         save_session(st.session_state.last_conv_name)
         restore_session(st.session_state.cur_conv_name)
         st.session_state.last_conv_name = st.session_state.cur_conv_name
@@ -90,6 +90,7 @@ def kb_chat(api: ApiRequest):
             dialogue_modes = ["知识库问答",
                               "文件对话",
                               "搜索引擎问答",
+                              "纯聊天",  # 新增纯聊天模式
                               ]
             dialogue_mode = st.selectbox("请选择对话模式：",
                                          dialogue_modes,
@@ -105,17 +106,24 @@ def kb_chat(api: ApiRequest):
             # )
             prompt_name="default"
             history_len = st.number_input("历史对话轮数：", 0, 20, key="history_len")
-            kb_top_k = st.number_input("匹配知识条数：", 1, 20, key="kb_top_k")
-            ## Bge 模型会超过1
-            score_threshold = st.slider("知识匹配分数阈值：", 0.0, 2.0, step=0.01, key="score_threshold")
-            return_direct = st.checkbox("仅返回检索结果", key="return_direct")
+            
+            # 只在需要知识库的模式下显示相关配置
+            if dialogue_mode in ["知识库问答", "文件对话"]:
+                kb_top_k = st.number_input("匹配知识条数：", 1, 20, key="kb_top_k")
+                ## Bge 模型会超过1
+                score_threshold = st.slider("知识匹配分数阈值：", 0.0, 2.0, step=0.01, key="score_threshold")
+                return_direct = st.checkbox("仅返回检索结果", key="return_direct")
+            else:
+                kb_top_k = Settings.kb_settings.VECTOR_SEARCH_TOP_K
+                score_threshold = Settings.kb_settings.SCORE_THRESHOLD
+                return_direct = False
 
 
 
             def on_kb_change():
                 st.toast(f"已加载知识库： {st.session_state.selected_kb}")
 
-            # 、、上面先谢了个placeholder容器，下面的组件会在这个容器中显示
+            # 上面先写了个placeholder容器，下面的组件会在这个容器中显示
             with placeholder.container():
                 if dialogue_mode == "知识库问答":
                     # 获取知识库list
@@ -127,7 +135,7 @@ def kb_chat(api: ApiRequest):
                         key="selected_kb",
                     )
                 elif dialogue_mode == "文件对话":
-                    #、、 st.file_uploader是streamlit的一个组件，用来创建一个文件上传框，files是上传来的文档
+                    # st.file_uploader是streamlit的一个组件，用来创建一个文件上传框，files是上传来的文档
                     files = st.file_uploader("上传知识文件：",
                                             [i for ls in LOADER_DICT.values() for i in ls],
                                             accept_multiple_files=True,
@@ -141,6 +149,8 @@ def kb_chat(api: ApiRequest):
                         options=search_engine_list,
                         key="search_engine",
                     )
+                elif dialogue_mode == "纯聊天":
+                    st.info("💬 直接与大模型对话，不使用任何知识库或搜索引擎")
 
         with tabs[1]:
             # 会话
@@ -176,18 +186,18 @@ def kb_chat(api: ApiRequest):
     # chat input
     with bottom():
         cols = st.columns([1, 0.2, 15,  1])
-        # 、、 :gear: 是一个图标，表示设置按钮
+        # :gear: 是一个图标，表示设置按钮
         if cols[0].button(":gear:", help="模型配置"):
             widget_keys = ["platform", "llm_model", "temperature", "system_message"]
             chat_box.context_to_session(include=widget_keys)
             llm_model_setting()
-            # 、、：wastebasket: 是一个图标，表示清空对话按钮
+            # ：wastebasket: 是一个图标，表示清空对话按钮
         if cols[-1].button(":wastebasket:", help="清空对话"):
             chat_box.reset_history()
             rerun()
         # with cols[1]:
         #     mic_audio = audio_recorder("", icon_size="2x", key="mic_audio")
-        # 、、prompt是用户输入的内容
+        # prompt是用户输入的内容
         prompt = cols[2].chat_input(chat_input_placeholder, key="prompt")
     if prompt:
         history = get_messages_history(ctx.get("history_len", 0))
@@ -204,8 +214,8 @@ def kb_chat(api: ApiRequest):
     
         api_url = api_address(is_public=True)
         if dialogue_mode == "知识库问答":
-            # 、、这个路由 会调用到 后端的kb_routes.py中的kb_chat_endpoint 知识库聊天端点 
-            # 、、在那个端点中会进行路由解析，将local_kb和selected_kb解析出来
+            # 这个路由 会调用到 后端的kb_routes.py中的kb_chat_endpoint 知识库聊天端点 
+            # 在那个端点中会进行路由解析，将local_kb和selected_kb解析出来
             client = openai.Client(base_url=f"{api_url}/knowledge_base/local_kb/{selected_kb}", api_key="NONE")
             chat_box.ai_say([
                 Markdown("...", in_expander=True, title="知识库匹配结果", state="running", expanded=return_direct),
@@ -221,6 +231,9 @@ def kb_chat(api: ApiRequest):
                 Markdown("...", in_expander=True, title="知识库匹配结果", state="running", expanded=return_direct),
                 f"正在查询文件 `{st.session_state.get('file_chat_id')}` ...",
             ])
+        elif dialogue_mode == '纯聊天':  # 新增纯聊天模式处理
+            client = openai.Client(base_url=f"{api_url}/knowledge_base/local/local_kb", api_key="NONE")
+            chat_box.ai_say("正在思考...")
         else:
             client = openai.Client(base_url=f"{api_url}/knowledge_base/search_engine/{search_engine}", api_key="NONE")
             chat_box.ai_say([
@@ -232,19 +245,23 @@ def kb_chat(api: ApiRequest):
         first = True
 
         try:
-            # 、、调接口
+            # 调接口
             for d in client.chat.completions.create(messages=messages, model=llm_model, stream=True, extra_body=extra_body):
                 if first:
-                    chat_box.update_msg("\n\n".join(d.docs), element_index=0, streaming=False, state="complete")
+                    # 修复：检查是否有 docs 属性
+                    if hasattr(d, 'docs') and d.docs:
+                        chat_box.update_msg("\n\n".join(d.docs), element_index=0, streaming=False, state="complete")
                     chat_box.update_msg("", streaming=False)
                     first = False
                     continue
-                text += d.choices[0].delta.content or ""
-                chat_box.update_msg(text.replace("\n", "\n\n"), streaming=True)
+                if hasattr(d.choices[0].delta, 'content'):
+                    text += d.choices[0].delta.content or ""
+                    chat_box.update_msg(text.replace("\n", "\n\n"), streaming=True)
             chat_box.update_msg(text, streaming=False)
             # TODO: 搜索未配置API KEY时产生报错
         except Exception as e:
-            st.error(e.body)
+            # 修复：使用 str(e) 而不是 e.body
+            st.error(f"发生错误: {str(e)}")
 
     now = datetime.now()
     with tabs[1]:

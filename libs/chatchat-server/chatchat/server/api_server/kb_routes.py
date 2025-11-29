@@ -37,7 +37,7 @@ kb_router = APIRouter(prefix="/knowledge_base", tags=["Knowledge Base Management
     "/{mode}/{param}/chat/completions", summary="知识库对话，openai 兼容，参数与 /chat/kb_chat 一致"
 )
 async def kb_chat_endpoint(
-    mode: Literal["local_kb", "temp_kb", "search_engine"],
+    mode: Literal["local_kb", "temp_kb", "search_engine","local"],
     param: str,
     body: OpenAIChatInput,
     request: Request,
