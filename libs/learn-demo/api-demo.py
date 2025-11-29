@@ -1,11 +1,11 @@
 from openai import OpenAI
 client = OpenAI(
-    api_key='sk-6d1dfee8241f450aa477a49f37159755',
+    api_key='',
     base_url="https://api.deepseek.com/v1")
 
 clientMT = OpenAI(
     base_url='https://ms-ens-abc10ebd-5837.api-inference.modelscope.cn/v1',
-    api_key='ms-f2a19712-d239-4daf-b126-348d10866191', # ModelScope Token
+    api_key='', # ModelScope Token
 )
 if __name__ == "__main__":
 
